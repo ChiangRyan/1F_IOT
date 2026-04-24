@@ -17,6 +17,7 @@ namespace SANJET.Core.ViewModels
         private readonly ILogger<SettingsPageViewModel> _logger;
         private readonly IDatabaseManagementService _dbManagementService;
         private readonly string _rtspSettingsPath;
+        private Action? _autoStartStreamAction;
 
         [ObservableProperty]
         private string _pageTitle = "應用程式設定";
@@ -97,6 +98,26 @@ namespace SANJET.Core.ViewModels
             return string.IsNullOrWhiteSpace(streamPath)
                 ? $"rtsp://{authPart}{ip}:{RtspPort}"
                 : $"rtsp://{authPart}{ip}:{RtspPort}/{streamPath}";
+        }
+
+        public void SetAutoStartStreamAction(Action action)
+        {
+            _autoStartStreamAction = action;
+        }
+
+        [RelayCommand]
+        private void StartStreamAuto()
+        {
+            try
+            {
+                _logger.LogInformation("自動開始串流");
+                _autoStartStreamAction?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "自動開始串流失敗");
+                MessageBox.Show($"自動開始串流失敗：{ex.Message}", "錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         [RelayCommand]

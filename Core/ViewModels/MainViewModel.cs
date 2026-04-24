@@ -683,6 +683,26 @@ namespace SANJET.Core.ViewModels
             }
         }
 
+        [RelayCommand]
+        private void OpenStreamWindow()
+        {
+            try
+            {
+                _logger.LogInformation("打開串流窗口");
+                if (App.Host != null)
+                {
+                    var streamWindow = App.Host.Services.GetRequiredService<StreamWindow>();
+                    streamWindow.Owner = Application.Current.MainWindow;
+                    streamWindow.Show();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "打開串流窗口失敗。");
+                MessageBox.Show($"打開串流窗口失敗：{ex.Message}", "錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
 
         [RelayCommand]
         private void Logout()

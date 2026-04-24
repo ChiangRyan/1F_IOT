@@ -98,6 +98,7 @@ namespace SANJET
                         services.AddScoped<SettingsPageViewModel>();
                         services.AddTransient<LoginViewModel>();
                         services.AddTransient<LoginWindow>();
+                        services.AddTransient(sp => new StreamWindow(sp.GetRequiredService<SettingsPageViewModel>()));
                         //services.AddTransient<RecordWindow>();
 
                         services.AddTransient<LoadingWindow>();

@@ -1,21 +1,25 @@
 using LibVLCSharp.Shared;
+using Microsoft.Extensions.DependencyInjection;
 using SANJET.Core.ViewModels;
 using System;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Media;
 
-namespace SANJET.UI.Views.Pages
+namespace SANJET.UI.Views.Windows
 {
-    public partial class SettingsPage : Page
+    public partial class StreamWindow : Window
     {
         private LibVLC? _libVLC;
         private LibVLCSharp.Shared.MediaPlayer? _mediaPlayer;
         private Media? _media;
+        private SettingsPageViewModel? _viewModel;
 
-        public SettingsPage()
+        public StreamWindow(SettingsPageViewModel viewModel)
         {
             InitializeComponent();
+
+            _viewModel = viewModel;
+            DataContext = _viewModel;
 
             LibVLCSharp.Shared.Core.Initialize();
 
@@ -27,19 +31,30 @@ namespace SANJET.UI.Views.Pages
             _mediaPlayer = new LibVLCSharp.Shared.MediaPlayer(_libVLC);
             RtspVideoView.MediaPlayer = _mediaPlayer;
 
-            Loaded += SettingsPage_Loaded;
-            Unloaded += SettingsPage_Unloaded;
+            Loaded += StreamWindow_Loaded;
+            Unloaded += StreamWindow_Unloaded;
         }
 
-        private void SettingsPage_Loaded(object sender, RoutedEventArgs e)
+        private void StreamWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            if (DataContext is SettingsPageViewModel viewModel)
+            try
             {
-                viewModel.SetAutoStartStreamAction(StartStream);
+                _viewModel = DataContext as SettingsPageViewModel;
+                if (_viewModel != null)
+                {
+                    _viewModel.SetAutoStartStreamAction(StartStream);
+                    StartStream();
+                }
+            }
+            catch (Exception ex)
+            {
+                StreamStatusText.Text = $"初始化失敗: {ex.Message}";
+                StreamStatusText.Foreground = Brushes.Red;
+                StreamStatusText.Visibility = Visibility.Visible;
             }
         }
 
-        private void SettingsPage_Unloaded(object sender, RoutedEventArgs e)
+        private void StreamWindow_Unloaded(object sender, RoutedEventArgs e)
         {
             StopStream();
 
@@ -52,21 +67,11 @@ namespace SANJET.UI.Views.Pages
             _libVLC = null;
         }
 
-        private void ConnectRtspStream_Click(object sender, RoutedEventArgs e)
-        {
-            StartStream();
-        }
-
-        private void DisconnectRtspStream_Click(object sender, RoutedEventArgs e)
-        {
-            StopStream();
-        }
-
         private void StartStream()
         {
             try
             {
-                if (_libVLC == null || _mediaPlayer == null)
+                if (_libVLC == null || _mediaPlayer == null || _viewModel == null)
                     return;
 
                 StopStream();
@@ -75,12 +80,7 @@ namespace SANJET.UI.Views.Pages
                 StreamStatusText.Foreground = Brushes.White;
                 StreamStatusText.Visibility = Visibility.Visible;
 
-                if (DataContext is not SettingsPageViewModel viewModel)
-                {
-                    throw new InvalidOperationException("設定頁資料尚未初始化，請稍後再試。");
-                }
-
-                var rtspUrl = viewModel.BuildRtspUrl();
+                var rtspUrl = _viewModel.BuildRtspUrl();
                 _media = new Media(_libVLC, new Uri(rtspUrl));
                 _media.AddOption(":rtsp-tcp");
                 _media.AddOption(":network-caching=300");
@@ -121,6 +121,16 @@ namespace SANJET.UI.Views.Pages
                 StreamStatusText.Foreground = Brushes.Red;
                 StreamStatusText.Visibility = Visibility.Visible;
             }
+        }
+
+        private void DisconnectStream_Click(object sender, RoutedEventArgs e)
+        {
+            StopStream();
+        }
+
+        private void Close_Click(object sender, RoutedEventArgs e)
+        {
+            Close();
         }
     }
 }
