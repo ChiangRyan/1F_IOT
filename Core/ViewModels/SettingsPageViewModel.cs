@@ -5,6 +5,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using SANJET.Core.Interfaces;
 using System;
+using System.IO;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 
@@ -14,20 +16,114 @@ namespace SANJET.Core.ViewModels
     {
         private readonly ILogger<SettingsPageViewModel> _logger;
         private readonly IDatabaseManagementService _dbManagementService;
+        private readonly string _rtspSettingsPath;
 
         [ObservableProperty]
         private string _pageTitle = "應用程式設定";
+
+        [ObservableProperty]
+        private string _rtspIpAddress = "192.168.70.90";
+
+        [ObservableProperty]
+        private string _rtspUsername = "SANJET";
+
+        [ObservableProperty]
+        private string _rtspPassword = "Sanjet25653819";
+
+        [ObservableProperty]
+        private int _rtspPort = 554;
+
+        [ObservableProperty]
+        private string _rtspStreamPath = "stream1";
 
         public SettingsPageViewModel(ILogger<SettingsPageViewModel> logger, IDatabaseManagementService dbManagementService)
         {
             _logger = logger;
             _dbManagementService = dbManagementService;
+            _rtspSettingsPath = Path.Combine(AppContext.BaseDirectory, "rtsp.settings.json");
             _logger.LogInformation("SettingsViewModel 已初始化。");
         }
 
         public void LoadSettings()
         {
             _logger.LogInformation("正在加載設定值...");
+
+            try
+            {
+                if (!File.Exists(_rtspSettingsPath))
+                {
+                    _logger.LogInformation("RTSP 設定檔不存在，使用預設值。路徑: {Path}", _rtspSettingsPath);
+                    return;
+                }
+
+                var json = File.ReadAllText(_rtspSettingsPath);
+                var settings = JsonSerializer.Deserialize<RtspSettingsModel>(json);
+
+                if (settings == null)
+                {
+                    _logger.LogWarning("RTSP 設定檔格式錯誤，使用預設值。路徑: {Path}", _rtspSettingsPath);
+                    return;
+                }
+
+                RtspIpAddress = settings.IpAddress;
+                RtspUsername = settings.Username;
+                RtspPassword = settings.Password;
+                RtspPort = settings.Port;
+                RtspStreamPath = settings.StreamPath;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "加載 RTSP 設定失敗。路徑: {Path}", _rtspSettingsPath);
+                MessageBox.Show($"加載 RTSP 設定失敗：{ex.Message}", "設定錯誤", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        public string BuildRtspUrl()
+        {
+            var ip = RtspIpAddress?.Trim();
+            var user = RtspUsername?.Trim();
+            var pass = RtspPassword ?? string.Empty;
+            var streamPath = (RtspStreamPath ?? string.Empty).Trim().TrimStart('/');
+
+            if (string.IsNullOrWhiteSpace(ip))
+            {
+                throw new InvalidOperationException("請先設定 RTSP IP 位址。");
+            }
+
+            var authPart = string.IsNullOrWhiteSpace(user)
+                ? string.Empty
+                : $"{Uri.EscapeDataString(user)}:{Uri.EscapeDataString(pass)}@";
+
+            return string.IsNullOrWhiteSpace(streamPath)
+                ? $"rtsp://{authPart}{ip}:{RtspPort}"
+                : $"rtsp://{authPart}{ip}:{RtspPort}/{streamPath}";
+        }
+
+        [RelayCommand]
+        private void SaveRtspSettings()
+        {
+            try
+            {
+                var settings = new RtspSettingsModel
+                {
+                    IpAddress = RtspIpAddress.Trim(),
+                    Username = RtspUsername.Trim(),
+                    Password = RtspPassword,
+                    Port = RtspPort,
+                    StreamPath = RtspStreamPath.Trim().TrimStart('/')
+                };
+
+                var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(_rtspSettingsPath, json);
+
+                _logger.LogInformation("RTSP 設定已儲存。路徑: {Path}", _rtspSettingsPath);
+                MessageBox.Show("RTSP 設定已儲存。", "儲存成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "儲存 RTSP 設定失敗。路徑: {Path}", _rtspSettingsPath);
+                MessageBox.Show($"儲存 RTSP 設定失敗：{ex.Message}", "儲存失敗", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         [RelayCommand]
@@ -78,6 +174,15 @@ namespace SANJET.Core.ViewModels
                     // 成功還原後，服務會處理重啟邏輯，此處不需再做操作
                 }
             }
+        }
+
+        private class RtspSettingsModel
+        {
+            public string IpAddress { get; set; } = "192.168.70.90";
+            public string Username { get; set; } = "SANJET";
+            public string Password { get; set; } = "Sanjet25653819";
+            public int Port { get; set; } = 554;
+            public string StreamPath { get; set; } = "stream1";
         }
     }
 }

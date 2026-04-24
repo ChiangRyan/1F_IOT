@@ -1,4 +1,5 @@
 using LibVLCSharp.Shared;
+using SANJET.Core.ViewModels;
 using System;
 using System.Windows;
 using System.Windows.Controls;
@@ -8,8 +9,6 @@ namespace SANJET.UI.Views.Pages
 {
     public partial class SettingsPage : Page
     {
-        private const string RtspUrl = "rtsp://SANJET:Sanjet25653819@192.168.70.90:554/stream1";
-
         private LibVLC? _libVLC;
         private LibVLCSharp.Shared.MediaPlayer? _mediaPlayer;
         private Media? _media;
@@ -67,7 +66,13 @@ namespace SANJET.UI.Views.Pages
                 StreamStatusText.Foreground = Brushes.White;
                 StreamStatusText.Visibility = Visibility.Visible;
 
-                _media = new Media(_libVLC, new Uri(RtspUrl));
+                if (DataContext is not SettingsPageViewModel viewModel)
+                {
+                    throw new InvalidOperationException("設定頁資料尚未初始化，請稍後再試。");
+                }
+
+                var rtspUrl = viewModel.BuildRtspUrl();
+                _media = new Media(_libVLC, new Uri(rtspUrl));
                 _media.AddOption(":rtsp-tcp");
                 _media.AddOption(":network-caching=300");
 
