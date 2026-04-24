@@ -134,17 +134,7 @@
                             HorizontalAlignment="Right" 
                             VerticalAlignment="Top" 
                             Margin="0,10,20,0">
-                    <Button Content="RTSP 串流"
-                            Width="120"
-                            Height="40"
-                            Margin="5"
-                            FontWeight="Bold"
-                            Background="#1F618D"
-                            Foreground="White"
-                            BorderThickness="0"
-                            Click="OpenRtspStreamWindowButton_Click"/>
-
-                    <Button x:Name="LoginButton" 
+                    <Button x:Name="LoginButton"
                             Content="登入" 
                             Command="{Binding ShowLoginCommand}" 
                             CommandParameter="{StaticResource DefaultIntCommandParameter}"

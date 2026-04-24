@@ -61,15 +61,5 @@ namespace SANJET.UI.Views.Windows
                 }
             }
         }
-
-        private void OpenRtspStreamWindowButton_Click(object sender, RoutedEventArgs e)
-        {
-            var streamWindow = new RtspStreamWindow
-            {
-                Owner = this
-            };
-
-            streamWindow.ShowDialog();
-        }
     }
 }

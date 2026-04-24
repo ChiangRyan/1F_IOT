@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <Folder Include="Core\Tools\" />
+    <Folder Include="Tools\RtspQuickDiagnostic\" />
   </ItemGroup>
 
   <ItemGroup>
