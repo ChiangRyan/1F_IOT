@@ -22,7 +22,7 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="EPPlus" Version="8.0.5" />
     <PackageReference Include="LibVLCSharp" Version="3.9.7.1" />
-    <PackageReference Include="LibVLCSharp.Forms.WPF" Version="3.9.7.1" />
+    <PackageReference Include="LibVLCSharp.WPF" Version="3.9.7.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.5" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.5">
       <PrivateAssets>all</PrivateAssets>
