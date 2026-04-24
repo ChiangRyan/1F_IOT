@@ -16,7 +16,7 @@ namespace SANJET.Core.Services
         public string Username { get; set; } = "SANJET";
         public string Password { get; set; } = "Sanjet25653819";
         public int Port { get; set; } = 554;
-        public string StreamPath { get; set; } = string.Empty;
+        public string StreamPath { get; set; } = "stream1";
 
         public static RtspStreamSettings Load()
         {
