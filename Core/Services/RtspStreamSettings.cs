@@ -12,7 +12,7 @@ namespace SANJET.Core.Services
 
         private static readonly string ConfigFilePath = Path.Combine(ConfigDirectory, "rtsp_settings.json");
 
-        public string IpAddress { get; set; } = "192.168.98.190";
+        public string IpAddress { get; set; } = "192.168.70.90";
         public string Username { get; set; } = "SANJET";
         public string Password { get; set; } = "Sanjet25653819";
         public int Port { get; set; } = 554;
