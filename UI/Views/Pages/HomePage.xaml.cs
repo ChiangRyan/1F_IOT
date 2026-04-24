@@ -1,5 +1,4 @@
 ﻿
-using System.Windows;
 using System.Windows.Controls;
 
 namespace SANJET.UI.Views.Pages
@@ -12,5 +11,6 @@ namespace SANJET.UI.Views.Pages
             // 如果需要 ViewModel，在這裡設置 DataContext
             // DataContext = App.Host?.Services.GetService<HomeViewModel>();
         }
+
     }
 }
