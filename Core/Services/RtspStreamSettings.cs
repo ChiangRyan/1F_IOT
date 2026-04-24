@@ -16,7 +16,8 @@ namespace SANJET.Core.Services
         public string Username { get; set; } = "SANJET";
         public string Password { get; set; } = "Sanjet25653819";
         public int Port { get; set; } = 554;
-        public string StreamPath { get; set; } = string.Empty;
+        public string StreamPath { get; set; } = "stream1";
+        public string FullRtspUrl { get; set; } = string.Empty;
 
         public static RtspStreamSettings Load()
         {
@@ -46,10 +47,22 @@ namespace SANJET.Core.Services
 
         public string BuildRtspUrl()
         {
-            string user = Uri.EscapeDataString(Username ?? string.Empty);
-            string pass = Uri.EscapeDataString(Password ?? string.Empty);
+            string directUrl = (FullRtspUrl ?? string.Empty).Trim();
+            if (directUrl.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase))
+            {
+                return directUrl;
+            }
+
+            string user = Uri.EscapeDataString((Username ?? string.Empty).Trim());
+            string pass = Uri.EscapeDataString((Password ?? string.Empty).Trim());
             string host = (IpAddress ?? string.Empty).Trim();
             string streamPath = (StreamPath ?? string.Empty).Trim();
+            int port = Port <= 0 ? 554 : Port;
+
+            if (string.IsNullOrWhiteSpace(streamPath))
+            {
+                streamPath = "stream1";
+            }
 
             if (!streamPath.StartsWith("/"))
             {
@@ -61,7 +74,11 @@ namespace SANJET.Core.Services
                 streamPath = string.Empty;
             }
 
-            return $"rtsp://{user}:{pass}@{host}:{Port}{streamPath}";
+            string authPart = string.IsNullOrWhiteSpace(user)
+                ? string.Empty
+                : $"{user}:{pass}@";
+
+            return $"rtsp://{authPart}{host}:{port}{streamPath}";
         }
     }
 }

@@ -11,6 +11,7 @@ namespace SANJET.UI.Views.Windows
     {
         private LibVLC? _libVlc;
         private LibVlcMediaPlayer? _mediaPlayer;
+        private LibVlcMedia? _media;
 
         public RtspStreamWindow()
         {
@@ -31,11 +32,15 @@ namespace SANJET.UI.Views.Windows
 
             try
             {
-                using var media = new LibVlcMedia(_libVlc, new Uri(rtspUrl));
-                _mediaPlayer.Play(media);
+                _media = new LibVlcMedia(_libVlc, new Uri(rtspUrl));
+                _mediaPlayer.Play(_media);
             }
-            catch
+            catch (Exception ex)
             {
+                MessageBox.Show($"RTSP 串流啟動失敗。\nURL: {rtspUrl}\n錯誤: {ex.Message}",
+                    "RTSP 錯誤",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
                 Close();
             }
         }
@@ -48,8 +53,10 @@ namespace SANJET.UI.Views.Windows
             }
 
             RtspVideoView.MediaPlayer = null;
+            _media?.Dispose();
             _mediaPlayer?.Dispose();
             _libVlc?.Dispose();
+            _media = null;
             _mediaPlayer = null;
             _libVlc = null;
         }

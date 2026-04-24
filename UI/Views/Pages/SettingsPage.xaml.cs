@@ -17,6 +17,7 @@ namespace SANJET.UI.Views.Pages
         private void SettingsPage_Loaded(object sender, RoutedEventArgs e)
         {
             var settings = RtspStreamSettings.Load();
+            FullRtspUrlTextBox.Text = settings.FullRtspUrl;
             IpAddressTextBox.Text = settings.IpAddress;
             PortTextBox.Text = settings.Port.ToString();
             UsernameTextBox.Text = settings.Username;
@@ -29,6 +30,16 @@ namespace SANJET.UI.Views.Pages
 
         private void SaveRtspSettingsButton_Click(object sender, RoutedEventArgs e)
         {
+            string fullRtspUrl = FullRtspUrlTextBox.Text?.Trim() ?? string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(fullRtspUrl) &&
+                !fullRtspUrl.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase))
+            {
+                RtspStatusTextBlock.Text = "狀態：完整 RTSP URL 必須以 rtsp:// 開頭";
+                RtspStatusTextBlock.Foreground = Brushes.OrangeRed;
+                return;
+            }
+
             if (!int.TryParse(PortTextBox.Text?.Trim(), out int port) || port <= 0 || port > 65535)
             {
                 RtspStatusTextBlock.Text = "狀態：連接埠格式錯誤，請輸入 1-65535";
@@ -36,9 +47,9 @@ namespace SANJET.UI.Views.Pages
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(IpAddressTextBox.Text))
+            if (string.IsNullOrWhiteSpace(fullRtspUrl) && string.IsNullOrWhiteSpace(IpAddressTextBox.Text))
             {
-                RtspStatusTextBlock.Text = "狀態：請輸入 IP 位址";
+                RtspStatusTextBlock.Text = "狀態：請輸入完整 RTSP URL 或 IP 位址";
                 RtspStatusTextBlock.Foreground = Brushes.OrangeRed;
                 return;
             }
@@ -47,6 +58,7 @@ namespace SANJET.UI.Views.Pages
             {
                 var settings = new RtspStreamSettings
                 {
+                    FullRtspUrl = fullRtspUrl,
                     IpAddress = IpAddressTextBox.Text.Trim(),
                     Port = port,
                     Username = UsernameTextBox.Text?.Trim() ?? string.Empty,

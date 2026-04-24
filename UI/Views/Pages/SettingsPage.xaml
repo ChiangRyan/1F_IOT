@@ -41,7 +41,10 @@
                         首頁按下「RTSP 串流」按鈕後，會以此設定開啟影像視窗。
                     </TextBlock>
 
-                    <UniformGrid Columns="2" Rows="5" Margin="0,0,0,10">
+                    <UniformGrid Columns="2" Rows="6" Margin="0,0,0,10">
+                        <TextBlock Text="完整 RTSP URL(優先)：" VerticalAlignment="Center" Margin="0,0,10,8"/>
+                        <TextBox x:Name="FullRtspUrlTextBox" Margin="0,0,0,8" Padding="6"/>
+
                         <TextBlock Text="IP 位址：" VerticalAlignment="Center" Margin="0,0,10,8"/>
                         <TextBox x:Name="IpAddressTextBox" Margin="0,0,0,8" Padding="6"/>
 
