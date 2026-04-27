@@ -19,7 +19,7 @@
         <ImageBrush x:Key="BackgroundImage" ImageSource="pack://application:,,,/UI/Resources/Images/background.png" Stretch="UniformToFill"/>
     </Window.Resources>
 
-    <Grid>
+    <Grid Background="{StaticResource BackgroundImage}">
         <Grid.RowDefinitions>
             <RowDefinition Height="120"/>
             <!-- 工具欄 -->
@@ -135,74 +135,76 @@
                             VerticalAlignment="Top" 
                             Margin="0,10,20,0">
                     <Button x:Name="StreamButton"
-        Command="{Binding OpenStreamWindowCommand}"
-        Width="70"
-        Height="90"
-        Margin="5"
-        ToolTip="串流"
-        Visibility="{Binding CanViewSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
-    
-    <Button.Style>
-        <Style TargetType="Button">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            Command="{Binding OpenStreamWindowCommand}"
+                            Width="100"
+                            Height="90"
+                            Margin="0"
+                            ToolTip="攝影機"
+                            Padding="0"
+                            BorderThickness="0"
+                            Background="Transparent"
+                            Visibility="{Binding CanViewSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
 
-                            <!-- 簡單監視器 -->
-                            <Grid Width="50" Height="50">
-                                
-                                <!-- 外圈 -->
-                                <Ellipse Fill="#E0E0E0"
-                                         Stroke="#888"
-                                         StrokeThickness="2"/>
-
-                                <!-- 鏡頭 -->
-                                <Ellipse Width="18"
-                                         Height="18"
-                                         Fill="#2C3E50"
-                                         HorizontalAlignment="Center"
-                                         VerticalAlignment="Center"/>
-
-                                <!-- 小高光 -->
-                                <Ellipse Width="5"
-                                         Height="5"
-                                         Fill="White"
-                                         HorizontalAlignment="Center"
-                                         VerticalAlignment="Center"
-                                         Margin="-5,-5,0,0"/>
-                            </Grid>
-
-                            <!-- 文字 -->
-                            <TextBlock Text="攝影機"
-                                       Foreground="White"
-                                       FontSize="16"
-                                       HorizontalAlignment="Center"
-                                       Margin="0,4,0,0"/>
-
-                        </StackPanel>
-
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Opacity" Value="0.8"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter Property="RenderTransform">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
                                     <Setter.Value>
-                                        <ScaleTransform ScaleX="0.9" ScaleY="0.9"/>
+                                        <ControlTemplate TargetType="Button">
+
+                                            <Grid>
+
+                                                <!-- 發光層（外圈） -->
+                                                <Border x:Name="glow"
+                                    CornerRadius="10"
+                                    BorderBrush="#00D4FF"
+                                    BorderThickness="3"
+                                    Opacity="0">
+                                                    <Border.Effect>
+                                                        <DropShadowEffect Color="#00D4FF"
+                                                      BlurRadius="20"
+                                                      ShadowDepth="0"
+                                                      Opacity="0.8"/>
+                                                    </Border.Effect>
+                                                </Border>
+
+                                                <!-- 主內容 -->
+                                                <Border x:Name="border"
+                                    CornerRadius="10"
+                                    BorderBrush="#6600D4FF"
+                                    BorderThickness="3"
+                                    Background="Transparent"
+                                    ClipToBounds="True">
+
+                                                    <Image Source="pack://application:,,,/UI/Resources/Images/camera.png"
+                                       Stretch="UniformToFill"/>
+
+                                                </Border>
+
+                                            </Grid>
+
+                                            <ControlTemplate.Triggers>
+
+                                                <!-- 滑鼠移上去 → 發光 -->
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="glow" Property="Opacity" Value="1"/>
+                                                    <Setter TargetName="border" Property="BorderBrush" Value="#00D4FF"/>
+                                                </Trigger>
+
+                                                <!-- 按下 -->
+                                                <Trigger Property="IsPressed" Value="True">
+                                                    <Setter TargetName="border" Property="Opacity" Value="0.7"/>
+                                                    <Setter TargetName="glow" Property="Opacity" Value="0.6"/>
+                                                </Trigger>
+
+                                            </ControlTemplate.Triggers>
+
+                                        </ControlTemplate>
                                     </Setter.Value>
                                 </Setter>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
+                            </Style>
+                        </Button.Style>
 
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-    </Button.Style>
-</Button>
+                    </Button>
 
                     <Button x:Name="LoginButton"
                             Content="登入" 

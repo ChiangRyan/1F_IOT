@@ -4,7 +4,6 @@
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
       xmlns:local="clr-namespace:SANJET.UI.Views.Pages"
-      xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
       mc:Ignorable="d"
       d:DesignHeight="450"
       d:DesignWidth="800"
@@ -44,13 +43,15 @@
                     </StackPanel>
                 </GroupBox>
 
-                <GroupBox Header="RTSP 串流" Padding="10" MinWidth="700" Margin="0,20,0,0">
+                <GroupBox Header="RTSP 參數設定" Padding="10" MinWidth="500" Margin="0,20,0,0">
                     <StackPanel>
                         <TextBlock TextWrapping="Wrap" Margin="0,0,0,10">
-                            可在此獨立設定 RTSP 帳號、密碼與 IP，並即時預覽串流畫面。
+                            可在此設定 RTSP 帳號、密碼與 IP。
                         </TextBlock>
 
-                        <Grid Margin="0,0,0,10">
+                        <!-- 攝像頭 1 -->
+                        <TextBlock Text="攝像頭 1" FontWeight="Bold" Margin="0,0,0,10" Foreground="#FF2196F3"/>
+                        <Grid Margin="0,0,0,15">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="100"/>
                                 <ColumnDefinition Width="220"/>
@@ -79,24 +80,36 @@
                             <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding RtspStreamPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,10,0"/>
                         </Grid>
 
-                        <Border BorderThickness="1"
-                                BorderBrush="Gray"
-                                Padding="0"
-                                Height="360"
-                                Width="640"
-                                Margin="0,0,0,10">
-                            <Grid Background="Black">
-                                <vlc:VideoView x:Name="RtspVideoView" />
+                        <!-- 攝像頭 2 -->
+                        <TextBlock Text="攝像頭 2" FontWeight="Bold" Margin="0,0,0,10" Foreground="#FF2196F3"/>
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="100"/>
+                                <ColumnDefinition Width="220"/>
+                                <ColumnDefinition Width="100"/>
+                                <ColumnDefinition Width="220"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
 
-                                <TextBlock x:Name="StreamStatusText"
-                                           Text="未連接"
-                                           Foreground="White"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"
-                                           FontSize="18"
-                                           Panel.ZIndex="10"/>
-                            </Grid>
-                        </Border>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="IP 位址" VerticalAlignment="Center" Margin="0,0,8,8"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding RtspIpAddress2, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,10,8"/>
+
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="連接埠" VerticalAlignment="Center" Margin="0,0,8,8"/>
+                            <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding RtspPort2, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="帳號" VerticalAlignment="Center" Margin="0,0,8,8"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RtspUsername2, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,10,8"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="2" Text="密碼" VerticalAlignment="Center" Margin="0,0,8,8"/>
+                            <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding RtspPassword2, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="串流路徑" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding RtspStreamPath2, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,10,0"/>
+                        </Grid>
 
                         <StackPanel Orientation="Horizontal">
                             <Button Content="儲存 RTSP 設定"
@@ -104,17 +117,6 @@
                                     Padding="10,5"
                                     Margin="0,0,10,0"
                                     Command="{Binding SaveRtspSettingsCommand}"/>
-
-                            <Button Content="連接"
-                                    Width="100"
-                                    Padding="10,5"
-                                    Margin="0,0,10,0"
-                                    Click="ConnectRtspStream_Click"/>
-
-                            <Button Content="斷開連接"
-                                    Width="100"
-                                    Padding="10,5"
-                                    Click="DisconnectRtspStream_Click"/>
                         </StackPanel>
                     </StackPanel>
                 </GroupBox>

@@ -10,6 +10,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="UI\Resources\Images\background.png" />
+    <None Remove="UI\Resources\Images\camera.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="AnyConv.com__logotest.ico" />
   </ItemGroup>
 
@@ -40,6 +45,15 @@
     <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.11" />
     <PackageReference Include="System.Speech" Version="9.0.6" />
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.23.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="UI\Resources\Images\background.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="UI\Resources\Images\camera.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
   </ItemGroup>
 
   <ItemGroup>

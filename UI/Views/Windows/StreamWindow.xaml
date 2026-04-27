@@ -13,6 +13,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -23,66 +24,257 @@
                 Padding="15,10"
                 BorderBrush="#FF555555"
                 BorderThickness="0,0,0,1">
-            <TextBlock Text="RTSP 串流預覽"
+            <TextBlock Text="RTSP 串流"
                        FontSize="18"
                        FontWeight="Bold"
                        Foreground="White"/>
         </Border>
 
-        <!-- 視頻顯示區域 -->
+        <!-- 畫面選擇按鈕 -->
         <Border Grid.Row="1"
+                Background="#FF3E3E42"
+                Padding="15,10"
+                BorderBrush="#FF555555"
+                BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <Button x:Name="Button1"
+                        Content="畫面 1"
+                        Width="100"
+                        Height="35"
+                        Margin="5"
+                        Click="Screen1_Click"
+                        Background="#FF2196F3"
+                        Foreground="White"
+                        BorderThickness="0"
+                        FontSize="13"
+                        FontWeight="Bold">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="border" 
+                                    Background="{TemplateBinding Background}" 
+                                    CornerRadius="5">
+                                <ContentPresenter HorizontalAlignment="Center" 
+                                                  VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="border" Property="Opacity" Value="0.6"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+
+                <Button x:Name="Button2"
+                        Content="畫面 2"
+                        Width="100"
+                        Height="35"
+                        Margin="5"
+                        Click="Screen2_Click"
+                        Background="#FF555555"
+                        Foreground="White"
+                        BorderThickness="0"
+                        FontSize="13"
+                        FontWeight="Bold">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="border" 
+                                    Background="{TemplateBinding Background}" 
+                                    CornerRadius="5">
+                                <ContentPresenter HorizontalAlignment="Center" 
+                                                  VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="border" Property="Opacity" Value="0.6"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </StackPanel>
+        </Border>
+
+        <!-- 視頻顯示區域 - 單一畫面 -->
+        <Border Grid.Row="2"
                 Background="Black"
                 Padding="10"
                 Margin="10">
             <Grid>
-                <vlc:VideoView x:Name="RtspVideoView"/>
+                <!-- 攝像頭 1 -->
+                <Grid x:Name="Screen1Container">
+                    <!-- 黑色背景層 - 防止 VideoView 顯示白色 -->
+                    <Rectangle Fill="Black" Panel.ZIndex="0"/>
+                    <vlc:VideoView x:Name="RtspVideoView1" Panel.ZIndex="0"/>
+                    <StackPanel Orientation="Vertical" 
+                                HorizontalAlignment="Center" 
+                                VerticalAlignment="Center"
+                                Panel.ZIndex="100"
+                                Background="Transparent">
+                        <TextBlock x:Name="StreamStatusText1"
+                                   Text="攝像頭 1 - 未連接"
+                                   Foreground="White"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="16"
+                                   Margin="0,0,0,20"/>
+                        <Button x:Name="ConnectButton1"
+                                Content="連接"
+                                Width="100"
+                                Height="40"
+                                Click="Connect1_Click"
+                                Background="#FF4CAF50"
+                                Foreground="White"
+                                BorderThickness="0"
+                                FontSize="14"
+                                FontWeight="Bold">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="border" 
+                                            Background="{TemplateBinding Background}" 
+                                            CornerRadius="5">
+                                        <ContentPresenter HorizontalAlignment="Center" 
+                                                          VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="border" Property="Opacity" Value="0.6"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                        <Button x:Name="DisconnectButton1"
+                                Content="斷開連接"
+                                Width="100"
+                                Height="40"
+                                Margin="0,10,0,0"
+                                Click="Disconnect1_Click"
+                                Background="#FFE74C3C"
+                                Foreground="White"
+                                BorderThickness="0"
+                                FontSize="14"
+                                FontWeight="Bold"
+                                Visibility="Collapsed">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="border" 
+                                            Background="{TemplateBinding Background}" 
+                                            CornerRadius="5">
+                                        <ContentPresenter HorizontalAlignment="Center" 
+                                                          VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="border" Property="Opacity" Value="0.6"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </StackPanel>
+                </Grid>
 
-                <TextBlock x:Name="StreamStatusText"
-                           Text="未連接"
-                           Foreground="White"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           FontSize="18"
-                           Panel.ZIndex="10"/>
+                <!-- 攝像頭 2 -->
+                <Grid x:Name="Screen2Container" Visibility="Collapsed">
+                    <!-- 黑色背景層 - 防止 VideoView 顯示白色 -->
+                    <Rectangle Fill="Black" Panel.ZIndex="0"/>
+                    <vlc:VideoView x:Name="RtspVideoView2" Panel.ZIndex="0"/>
+                    <StackPanel Orientation="Vertical" 
+                                HorizontalAlignment="Center" 
+                                VerticalAlignment="Center"
+                                Panel.ZIndex="100"
+                                Background="Transparent">
+                        <TextBlock x:Name="StreamStatusText2"
+                                   Text="攝像頭 2 - 未連接"
+                                   Foreground="White"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="16"
+                                   Margin="0,0,0,20"/>
+                        <Button x:Name="ConnectButton2"
+                                Content="連接"
+                                Width="100"
+                                Height="40"
+                                Click="Connect2_Click"
+                                Background="#FF4CAF50"
+                                Foreground="White"
+                                BorderThickness="0"
+                                FontSize="14"
+                                FontWeight="Bold">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="border" 
+                                            Background="{TemplateBinding Background}" 
+                                            CornerRadius="5">
+                                        <ContentPresenter HorizontalAlignment="Center" 
+                                                          VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="border" Property="Opacity" Value="0.6"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                        <Button x:Name="DisconnectButton2"
+                                Content="斷開連接"
+                                Width="100"
+                                Height="40"
+                                Margin="0,10,0,0"
+                                Click="Disconnect2_Click"
+                                Background="#FFE74C3C"
+                                Foreground="White"
+                                BorderThickness="0"
+                                FontSize="14"
+                                FontWeight="Bold"
+                                Visibility="Collapsed">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="border" 
+                                            Background="{TemplateBinding Background}" 
+                                            CornerRadius="5">
+                                        <ContentPresenter HorizontalAlignment="Center" 
+                                                          VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="border" Property="Opacity" Value="0.6"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </StackPanel>
+                </Grid>
             </Grid>
         </Border>
 
         <!-- 控制按鈕 -->
-        <StackPanel Grid.Row="2"
+        <StackPanel Grid.Row="3"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="15"
                     VerticalAlignment="Center">
-            <Button Content="斷開連接"
-                    Width="120"
-                    Height="40"
-                    Margin="5"
-                    Click="DisconnectStream_Click"
-                    Background="#FFE74C3C"
-                    Foreground="White"
-                    BorderThickness="0"
-                    FontSize="14"
-                    FontWeight="Bold">
-                <Button.Template>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" 
-                                Background="{TemplateBinding Background}" 
-                                CornerRadius="5">
-                            <ContentPresenter HorizontalAlignment="Center" 
-                                              VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Opacity" Value="0.8"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Opacity" Value="0.6"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Button.Template>
-            </Button>
-
             <Button Content="關閉"
                     Width="100"
                     Height="40"
