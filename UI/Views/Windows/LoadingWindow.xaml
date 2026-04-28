@@ -120,7 +120,7 @@
 
             <!-- 動態提示文字 -->
             <TextBlock x:Name="StatusText" 
-                       Text="正在初始化連線..."
+                       Text="{Binding StatusText}"
                        FontSize="14"
                        Foreground="#DDFFFFFF"
                        Margin="0,8,0,0"

@@ -3,11 +3,13 @@ using Microsoft.Extensions.DependencyInjection;
 using SANJET.Core.Services;
 using SANJET.Core.ViewModels;
 using System;
+using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Media;
 
 namespace SANJET.UI.Views.Windows
 {
+    [SupportedOSPlatform("windows7.0")]
     public partial class StreamWindow : Window
     {
         private LibVLC? _libVLC;
@@ -68,13 +70,13 @@ namespace SANJET.UI.Views.Windows
             {
                 _viewModel = DataContext as SettingsPageViewModel;
                 ShowScreen1();
-                // LibVLC 已在應用啟動時預先初始化，無需再次預熱
+                UpdateStatusUI();
             }
             catch (Exception ex)
             {
-                StreamStatusText1.Text = $"初始化失敗: {ex.Message}";
-                StreamStatusText1.Foreground = Brushes.Red;
-                StreamStatusText1.Visibility = Visibility.Visible;
+                StreamStatusText.Text = $"初始化失敗: {ex.Message}";
+                StreamStatusText.Foreground = Brushes.Red;
+                StatusDot.Fill = Brushes.Red;
             }
         }
 
@@ -97,6 +99,56 @@ namespace SANJET.UI.Views.Windows
             _libVLC = null;
         }
 
+        private void UpdateStatusUI()
+        {
+            if (_currentScreen == 1)
+            {
+                StreamStatusText.Text = _stream1Connected
+                    ? "攝像頭 1 - 已連接"
+                    : "攝像頭 1 - 未連接";
+
+                StatusDot.Fill = _stream1Connected
+                    ? Brushes.LimeGreen
+                    : Brushes.Gray;
+            }
+            else
+            {
+                StreamStatusText.Text = _stream2Connected
+                    ? "攝像頭 2 - 已連接"
+                    : "攝像頭 2 - 未連接";
+
+                StatusDot.Fill = _stream2Connected
+                    ? Brushes.LimeGreen
+                    : Brushes.Gray;
+            }
+        }
+
+        private void UpdateControlButtons()
+        {
+            bool connected = _currentScreen == 1
+                ? _stream1Connected
+                : _stream2Connected;
+
+            ConnectButton1.Visibility = connected ? Visibility.Collapsed : Visibility.Visible;
+            DisconnectButton1.Visibility = connected ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void Connect1_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentScreen == 1)
+                StartStream1();
+            else
+                StartStream2();
+        }
+
+        private void Disconnect1_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentScreen == 1)
+                StopStream1();
+            else
+                StopStream2();
+        }
+
         private void StartStream1()
         {
             try
@@ -107,20 +159,20 @@ namespace SANJET.UI.Views.Windows
                 if (_stream1Connected)
                     return;
 
-                StreamStatusText1.Text = "攝像頭 1 - 連接中...";
-                StreamStatusText1.Foreground = Brushes.White;
-                StreamStatusText1.Visibility = Visibility.Visible;
+                _currentScreen = 1;
+
+                StreamStatusText.Text = "攝像頭 1 - 連接中...";
+                StreamStatusText.Foreground = Brushes.White;
+                StatusDot.Fill = Brushes.Orange;
 
                 var rtspUrl = _viewModel.BuildRtspUrl1();
 
-                // Stop any existing stream first
                 if (_mediaPlayer1.IsPlaying)
                 {
                     _mediaPlayer1.Stop();
                     System.Threading.Thread.Sleep(100);
                 }
 
-                // Clean up old media
                 _media1?.Dispose();
                 _media1 = null;
 
@@ -130,19 +182,23 @@ namespace SANJET.UI.Views.Windows
 
                 _mediaPlayer1.Play(_media1);
 
-                StreamStatusText1.Text = "攝像頭 1 - 已連接";
-                StreamStatusText1.Foreground = Brushes.LimeGreen;
-                StreamStatusText1.Visibility = Visibility.Collapsed;
-
                 _stream1Connected = true;
+
                 ConnectButton1.Visibility = Visibility.Collapsed;
                 DisconnectButton1.Visibility = Visibility.Visible;
+
+                UpdateStatusUI();
             }
             catch (Exception ex)
             {
-                StreamStatusText1.Text = $"攝像頭 1 - 連接失敗: {ex.Message}";
-                StreamStatusText1.Foreground = Brushes.Red;
-                StreamStatusText1.Visibility = Visibility.Visible;
+                _stream1Connected = false;
+
+                StreamStatusText.Text = $"攝像頭 1 - 連接失敗: {ex.Message}";
+                StreamStatusText.Foreground = Brushes.Red;
+                StatusDot.Fill = Brushes.Red;
+
+                ConnectButton1.Visibility = Visibility.Visible;
+                DisconnectButton1.Visibility = Visibility.Collapsed;
             }
         }
 
@@ -156,20 +212,20 @@ namespace SANJET.UI.Views.Windows
                 if (_stream2Connected)
                     return;
 
-                StreamStatusText2.Text = "攝像頭 2 - 連接中...";
-                StreamStatusText2.Foreground = Brushes.White;
-                StreamStatusText2.Visibility = Visibility.Visible;
+                _currentScreen = 2;
+
+                StreamStatusText.Text = "攝像頭 2 - 連接中...";
+                StreamStatusText.Foreground = Brushes.White;
+                StatusDot.Fill = Brushes.Orange;
 
                 var rtspUrl = _viewModel.BuildRtspUrl2();
 
-                // Stop any existing stream first
                 if (_mediaPlayer2.IsPlaying)
                 {
                     _mediaPlayer2.Stop();
                     System.Threading.Thread.Sleep(100);
                 }
 
-                // Clean up old media
                 _media2?.Dispose();
                 _media2 = null;
 
@@ -179,19 +235,20 @@ namespace SANJET.UI.Views.Windows
 
                 _mediaPlayer2.Play(_media2);
 
-                StreamStatusText2.Text = "攝像頭 2 - 已連接";
-                StreamStatusText2.Foreground = Brushes.LimeGreen;
-                StreamStatusText2.Visibility = Visibility.Collapsed;
-
                 _stream2Connected = true;
-                ConnectButton2.Visibility = Visibility.Collapsed;
-                DisconnectButton2.Visibility = Visibility.Visible;
+
+                UpdateControlButtons();
+                UpdateStatusUI();
             }
             catch (Exception ex)
             {
-                StreamStatusText2.Text = $"攝像頭 2 - 連接失敗: {ex.Message}";
-                StreamStatusText2.Foreground = Brushes.Red;
-                StreamStatusText2.Visibility = Visibility.Visible;
+                _stream2Connected = false;
+
+                StreamStatusText.Text = $"攝像頭 2 - 連接失敗: {ex.Message}";
+                StreamStatusText.Foreground = Brushes.Red;
+                StatusDot.Fill = Brushes.Red;
+
+                UpdateControlButtons();
             }
         }
 
@@ -208,25 +265,22 @@ namespace SANJET.UI.Views.Windows
                     }
                 }
 
-                if (_media1 != null)
-                {
-                    _media1.Dispose();
-                    _media1 = null;
-                }
-
-                StreamStatusText1.Text = "攝像頭 1 - 未連接";
-                StreamStatusText1.Foreground = Brushes.Gray;
-                StreamStatusText1.Visibility = Visibility.Visible;
+                _media1?.Dispose();
+                _media1 = null;
 
                 _stream1Connected = false;
+
                 ConnectButton1.Visibility = Visibility.Visible;
                 DisconnectButton1.Visibility = Visibility.Collapsed;
+
+                // ⭐ 統一更新 UI（重點）
+                UpdateStatusUI();
             }
             catch (Exception ex)
             {
-                StreamStatusText1.Text = $"攝像頭 1 - 斷開失敗: {ex.Message}";
-                StreamStatusText1.Foreground = Brushes.Red;
-                StreamStatusText1.Visibility = Visibility.Visible;
+                StreamStatusText.Text = $"攝像頭 1 - 斷開失敗: {ex.Message}";
+                StreamStatusText.Foreground = Brushes.Red;
+                StatusDot.Fill = Brushes.Red;
             }
         }
 
@@ -234,34 +288,25 @@ namespace SANJET.UI.Views.Windows
         {
             try
             {
-                if (_mediaPlayer2 != null)
+                if (_mediaPlayer2 != null && _mediaPlayer2.IsPlaying)
                 {
-                    if (_mediaPlayer2.IsPlaying)
-                    {
-                        _mediaPlayer2.Stop();
-                        System.Threading.Thread.Sleep(200);
-                    }
+                    _mediaPlayer2.Stop();
+                    System.Threading.Thread.Sleep(200);
                 }
 
-                if (_media2 != null)
-                {
-                    _media2.Dispose();
-                    _media2 = null;
-                }
-
-                StreamStatusText2.Text = "攝像頭 2 - 未連接";
-                StreamStatusText2.Foreground = Brushes.Gray;
-                StreamStatusText2.Visibility = Visibility.Visible;
+                _media2?.Dispose();
+                _media2 = null;
 
                 _stream2Connected = false;
-                ConnectButton2.Visibility = Visibility.Visible;
-                DisconnectButton2.Visibility = Visibility.Collapsed;
+
+                UpdateControlButtons();
+                UpdateStatusUI();
             }
             catch (Exception ex)
             {
-                StreamStatusText2.Text = $"攝像頭 2 - 斷開失敗: {ex.Message}";
-                StreamStatusText2.Foreground = Brushes.Red;
-                StreamStatusText2.Visibility = Visibility.Visible;
+                StreamStatusText.Text = $"攝像頭 2 - 斷開失敗: {ex.Message}";
+                StreamStatusText.Foreground = Brushes.Red;
+                StatusDot.Fill = Brushes.Red;
             }
         }
 
@@ -280,6 +325,7 @@ namespace SANJET.UI.Views.Windows
             if (_stream2Connected)
             {
                 StopStream2();
+                UpdateStatusUI();
             }
 
             Button1.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FF2196F3"));
@@ -296,6 +342,7 @@ namespace SANJET.UI.Views.Windows
             if (_stream1Connected)
             {
                 StopStream1();
+                UpdateStatusUI();
             }
 
             Button1.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FF555555"));
@@ -312,24 +359,5 @@ namespace SANJET.UI.Views.Windows
             ShowScreen2();
         }
 
-        private void Connect1_Click(object sender, RoutedEventArgs e)
-        {
-            StartStream1();
-        }
-
-        private void Connect2_Click(object sender, RoutedEventArgs e)
-        {
-            StartStream2();
-        }
-
-        private void Disconnect1_Click(object sender, RoutedEventArgs e)
-        {
-            StopStream1();
-        }
-
-        private void Disconnect2_Click(object sender, RoutedEventArgs e)
-        {
-            StopStream2();
-        }
     }
 }

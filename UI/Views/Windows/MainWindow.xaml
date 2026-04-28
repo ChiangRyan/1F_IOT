@@ -31,9 +31,10 @@
 
         <!-- 工具欄 -->
         <Border Grid.Row="0" 
-                BorderBrush="#555555" 
+                BorderBrush="Transparent" 
                 BorderThickness="0,0,0,1" 
-                CornerRadius="25">
+                CornerRadius="25"
+                Opacity="0.8">
             <Border.Background>
                 <SolidColorBrush Color="{DynamicResource {x:Static SystemColors.AppWorkspaceColorKey}}"/>
             </Border.Background>
@@ -137,7 +138,7 @@
                     <Button x:Name="StreamButton"
                             Command="{Binding OpenStreamWindowCommand}"
                             Width="100"
-                            Height="90"
+                            Height="89"
                             Margin="0"
                             ToolTip="攝影機"
                             Padding="0"
