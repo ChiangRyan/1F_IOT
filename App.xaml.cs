@@ -177,7 +177,7 @@ namespace SANJET
                     Application.Current.MainWindow = mainWindow; // 明確設定應用程式的主視窗
 
                     // 給用戶看到初始化完成的反饋
-                    await Task.Delay(500);
+                    await Task.Delay(300);
 
                     // 任務完成後關閉載入視窗
                     loadingWindow.Close();

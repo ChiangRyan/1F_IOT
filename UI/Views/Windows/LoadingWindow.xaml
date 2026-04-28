@@ -9,9 +9,11 @@
         ResizeMode="NoResize">
 
     <Window.Resources>
+
         <LinearGradientBrush x:Key="BackgroundGradient" StartPoint="0,0" EndPoint="1,1">
             <GradientStop Color="#FF6B48FF" Offset="0"/>
             <GradientStop Color="#FF00C6FB" Offset="1"/>
+            
         </LinearGradientBrush>
 
         <Style TargetType="Ellipse">
@@ -24,7 +26,7 @@
     <Grid>
         <!-- 背景遮罩：添加Clip裁剪圆角 -->
         <Border CornerRadius="24" 
-                Background="{StaticResource BackgroundGradient}"
+                Background="{DynamicResource BackgroundGradient}"
                 Opacity="0.95">
             <Border.Clip>
                 <RectangleGeometry Rect="0,0,320,320" RadiusX="24" RadiusY="24"/>
@@ -34,76 +36,325 @@
                                   ShadowDepth="0"
                                   Color="#40000000"/>
             </Border.Effect>
+
+            
+
         </Border>
 
         <StackPanel VerticalAlignment="Center" 
                     HorizontalAlignment="Center"
                     Margin="20">
 
-            <!-- 修正主动画：椭圆绕中心旋转 -->
-            <Canvas Width="120" Height="120" Margin="0,0,0,20">
-                <!-- 主旋轉動畫：绕Canvas中心旋转 -->
-                <Ellipse Fill="#FFF">
-                    <!-- 通过变换组合定位到旋转轨道 -->
-                    <Ellipse.RenderTransform>
+            <!-- 8 顆圓點繞圓動畫 -->
+            <!-- SANJET 8 顆球環繞動畫 -->
+            <Canvas Width="160" Height="160" Margin="0,0,0,20"
+                    RenderTransformOrigin="0.5,0.5">
+
+                <Canvas.RenderTransform>
+                    <RotateTransform Angle="28"/>
+                </Canvas.RenderTransform>
+
+
+                <!-- 淡淡軌道 -->
+                <Ellipse Width="118"
+                         Height="118"
+                         Canvas.Left="21"
+                         Canvas.Top="21"
+                         Stroke="#45FFFFFF"
+                         StrokeThickness="3"
+                         Opacity="0.5"/>
+                <!--
+                <Image Panel.ZIndex="10"
+                       Source="pack://application:,,,/UI/Resources/Images/logo.png"
+                       Width="120"
+                       Height="120"
+                       Canvas.Left="17"
+                       Canvas.Top="21"
+                       Stretch="Uniform"
+                       RenderTransformOrigin="0.5,0.5">
+                    <Image.RenderTransform>
+                        <RotateTransform x:Name="LogoRotate" Angle="-28"/>
+                    </Image.RenderTransform>
+                </Image>
+-->
+
+                <!-- 球 1 -->
+                <Canvas Width="160" Height="160" RenderTransformOrigin="0.5,0.5">
+
+                    <Canvas.RenderTransform>
                         <TransformGroup>
-                            <!-- 移动到Canvas中心 -->
-                            <TranslateTransform X="10" Y="10"/>
-                            <!-- 设置旋转中心偏移到Canvas中心 -->
-                            <RotateTransform x:Name="MainRotate" Angle="0"/>
-                            <!-- 调整到轨道半径位置 -->
-                            <TranslateTransform X="40" Y="0"/>
+
+                            <!-- 旋轉 -->
+                            <RotateTransform x:Name="DotRotate1" Angle="0"/>
+
                         </TransformGroup>
-                    </Ellipse.RenderTransform>
-                    <Ellipse.Triggers>
-                        <EventTrigger RoutedEvent="Loaded">
-                            <BeginStoryboard>
-                                <Storyboard>
-                                    <DoubleAnimation
-                                        Storyboard.TargetName="MainRotate"
-                                        Storyboard.TargetProperty="Angle"
-                                        From="0" To="360"
-                                        Duration="0:0:2.4"
-                                        RepeatBehavior="Forever"/>
-                                </Storyboard>
-                            </BeginStoryboard>
-                        </EventTrigger>
-                    </Ellipse.Triggers>
-                </Ellipse>
+                    </Canvas.RenderTransform>
+
+                    <Ellipse x:Name="Dot1" Width="22" Height="22" Canvas.Left="69" Canvas.Top="10">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush GradientOrigin="0.3,0.25">
+                                <GradientStop Color="#FFFFFFFF" Offset="0"/>
+                                <GradientStop Color="#FFBFC0C0" Offset="0.45"/>
+                                <GradientStop Color="#FF6C6B6B" Offset="1"/>
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
+                </Canvas>
+
+                <!-- 球 2 -->
+                <Canvas Width="160" Height="160" RenderTransformOrigin="0.5,0.5">
+
+                    <Canvas.RenderTransform>
+                        <TransformGroup>
+
+                            <!-- 旋轉 -->
+                            <RotateTransform x:Name="DotRotate2" Angle="0"/>
+
+                        </TransformGroup>
+                    </Canvas.RenderTransform>
+
+                    <Ellipse x:Name="Dot2" Width="22" Height="22" Canvas.Left="69" Canvas.Top="10">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush GradientOrigin="0.3,0.25">
+                                <GradientStop Color="#FFFFFFFF" Offset="0"/>
+                                <GradientStop Color="#FFD9DADA" Offset="0.45"/>
+                                <GradientStop Color="#FF979898" Offset="1"/>
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
+                </Canvas>
+
+                <!-- 球 3 -->
+                <Canvas Width="160" Height="160" RenderTransformOrigin="0.5,0.5">
+
+                    <Canvas.RenderTransform>
+                        <TransformGroup>
+
+                            <!-- 旋轉 -->
+                            <RotateTransform x:Name="DotRotate3" Angle="0"/>
+
+                        </TransformGroup>
+                    </Canvas.RenderTransform>
+
+                    <Ellipse x:Name="Dot3" Width="22" Height="22" Canvas.Left="69" Canvas.Top="10">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush GradientOrigin="0.3,0.25">
+                                <GradientStop Color="#FFFFFFFF" Offset="0"/>
+                                <GradientStop Color="#FFE5E5E5" Offset="0.45"/>
+                                <GradientStop Color="#FFB6B6B6" Offset="1"/>
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
+                </Canvas>
+
+                <!-- 球 4 -->
+                <Canvas Width="160" Height="160" RenderTransformOrigin="0.5,0.5">
+
+                    <Canvas.RenderTransform>
+                        <TransformGroup>
+
+                            <!-- 旋轉 -->
+                            <RotateTransform x:Name="DotRotate4" Angle="0"/>
+
+                        </TransformGroup>
+                    </Canvas.RenderTransform>
+
+                    <Ellipse x:Name="Dot4" Width="22" Height="22" Canvas.Left="69" Canvas.Top="10">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush GradientOrigin="0.3,0.25">
+                                <GradientStop Color="#FFFFFFFF" Offset="0"/>
+                                <GradientStop Color="#FFF0F0F0" Offset="0.45"/>
+                                <GradientStop Color="#FFC6C7C7" Offset="1"/>
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
+                </Canvas>
+
+                <!-- 球 5 -->
+                <Canvas Width="160" Height="160" RenderTransformOrigin="0.5,0.5">
+
+                    <Canvas.RenderTransform>
+                        <TransformGroup>
+
+                            <!-- 旋轉 -->
+                            <RotateTransform x:Name="DotRotate5" Angle="0"/>
+
+                        </TransformGroup>
+                    </Canvas.RenderTransform>
+
+                    <Ellipse x:Name="Dot5" Width="22" Height="22" Canvas.Left="69" Canvas.Top="10">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush GradientOrigin="0.3,0.25">
+                                <GradientStop Color="#FFFFFFFF" Offset="0"/>
+                                <GradientStop Color="#FFDADADA" Offset="0.45"/>
+                                <GradientStop Color="#FFAAAAAA" Offset="1"/>
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
+                </Canvas>
+
+                <!-- 球 6 橘色 -->
+                <Canvas Width="160" Height="160" RenderTransformOrigin="0.5,0.5">
+
+                    <Canvas.RenderTransform>
+                        <TransformGroup>
+
+                            <!-- 旋轉 -->
+                            <RotateTransform x:Name="DotRotate6" Angle="0"/>
+
+                        </TransformGroup>
+                    </Canvas.RenderTransform>
+
+                    <Ellipse x:Name="Dot6" Width="24" Height="24" Canvas.Left="68" Canvas.Top="9">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush GradientOrigin="0.3,0.25">
+                                <GradientStop Color="#FFFFFFFF" Offset="0"/>
+                                <GradientStop Color="#FFFFB347" Offset="0.38"/>
+                                <GradientStop Color="#FFFF8A00" Offset="1"/>
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                        <Ellipse.Effect>
+                            <DropShadowEffect Color="#FFFF8A00" BlurRadius="12" ShadowDepth="0" Opacity="0.8"/>
+                        </Ellipse.Effect>
+                    </Ellipse>
+                </Canvas>
+
+                <!-- 球 7 深色 -->
+                <Canvas Width="160" Height="160" RenderTransformOrigin="0.5,0.5">
+
+                    <Canvas.RenderTransform>
+                        <TransformGroup>
+
+                            <!-- 旋轉 -->
+                            <RotateTransform x:Name="DotRotate7" Angle="0"/>
+
+                        </TransformGroup>
+                    </Canvas.RenderTransform>
+
+                    <Ellipse x:Name="Dot7" Width="22" Height="22" Canvas.Left="69" Canvas.Top="10">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush GradientOrigin="0.3,0.25">
+                                <GradientStop Color="#FFBDBDBD" Offset="0"/>
+                                <GradientStop Color="#FF555555" Offset="0.45"/>
+                                <GradientStop Color="#FF2F2F2F" Offset="1"/>
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
+                </Canvas>
+
+                <!-- 球 8 -->
+                <Canvas Width="160" Height="160" RenderTransformOrigin="0.5,0.5">
+
+                    <Canvas.RenderTransform>
+                        <TransformGroup>
+
+                            <!-- 旋轉 -->
+                            <RotateTransform x:Name="DotRotate8" Angle="0"/>
+
+                        </TransformGroup>
+                    </Canvas.RenderTransform>
+
+                    <Ellipse x:Name="Dot8" Width="22" Height="22" Canvas.Left="69" Canvas.Top="10">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush GradientOrigin="0.3,0.25">
+                                <GradientStop Color="#FFFFFFFF" Offset="0"/>
+                                <GradientStop Color="#FFC8C8C8" Offset="0.45"/>
+                                <GradientStop Color="#FF828282" Offset="1"/>
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
+                </Canvas>
 
 
-                <!-- 副動畫圓點 -->
-                <Ellipse Canvas.Left="30" Canvas.Top="50" 
-                         Fill="#80FFFFFF">
-                    <Ellipse.RenderTransform>
-                        <ScaleTransform x:Name="Scale1" ScaleX="1" ScaleY="1"/>
-                    </Ellipse.RenderTransform>
-                    <Ellipse.Triggers>
-                        <EventTrigger RoutedEvent="Loaded">
-                            <BeginStoryboard>
-                                <Storyboard>
-                                    <DoubleAnimationUsingKeyFrames
-                                        Storyboard.TargetName="Scale1"
-                                        Storyboard.TargetProperty="ScaleX"
-                                        RepeatBehavior="Forever">
-                                        <LinearDoubleKeyFrame KeyTime="0:0:0" Value="1"/>
-                                        <LinearDoubleKeyFrame KeyTime="0:0:0.8" Value="1.6"/>
-                                        <LinearDoubleKeyFrame KeyTime="0:0:1.6" Value="1"/>
-                                    </DoubleAnimationUsingKeyFrames>
-                                    <DoubleAnimationUsingKeyFrames
-                                        Storyboard.TargetName="Scale1"
-                                        Storyboard.TargetProperty="ScaleY"
-                                        RepeatBehavior="Forever">
-                                        <LinearDoubleKeyFrame KeyTime="0:0:0" Value="1"/>
-                                        <LinearDoubleKeyFrame KeyTime="0:0:0.8" Value="1.6"/>
-                                        <LinearDoubleKeyFrame KeyTime="0:0:1.6" Value="1"/>
-                                    </DoubleAnimationUsingKeyFrames>
-                                </Storyboard>
-                            </BeginStoryboard>
-                        </EventTrigger>
-                    </Ellipse.Triggers>
-                </Ellipse>
+                <TextBlock Text="SANJET"
+           FontSize="24"
+           Foreground="RED"
+           Canvas.Left="38"
+           Canvas.Top="65"
+           RenderTransformOrigin="0.5,0.5" HorizontalAlignment="Left" VerticalAlignment="Center" FontFamily="粗體" FontWeight="Bold">
+                    <TextBlock.RenderTransform>
+                        <RotateTransform x:Name="LogoRotate" Angle="-28"/>
+                    </TextBlock.RenderTransform>
+                </TextBlock>
+
+
+                <!-- 動畫 -->
+                <Canvas.Triggers>
+                    <EventTrigger RoutedEvent="Loaded">
+                        <BeginStoryboard>
+                            <Storyboard RepeatBehavior="Forever">
+                                <DoubleAnimation Storyboard.TargetName="DotRotate1" Storyboard.TargetProperty="Angle" From="0" To="360" Duration="0:0:3.5"/>
+                                <DoubleAnimation Storyboard.TargetName="DotRotate2" Storyboard.TargetProperty="Angle" From="45" To="405" Duration="0:0:3.5"/>
+                                <DoubleAnimation Storyboard.TargetName="DotRotate3" Storyboard.TargetProperty="Angle" From="90" To="450" Duration="0:0:3.5"/>
+                                <DoubleAnimation Storyboard.TargetName="DotRotate4" Storyboard.TargetProperty="Angle" From="135" To="495" Duration="0:0:3.5"/>
+                                <DoubleAnimation Storyboard.TargetName="DotRotate5" Storyboard.TargetProperty="Angle" From="180" To="540" Duration="0:0:3.5"/>
+                                <DoubleAnimation Storyboard.TargetName="DotRotate6" Storyboard.TargetProperty="Angle" From="225" To="585" Duration="0:0:3.5"/>
+                                <DoubleAnimation Storyboard.TargetName="DotRotate7" Storyboard.TargetProperty="Angle" From="270" To="630" Duration="0:0:3.5"/>
+                                <DoubleAnimation Storyboard.TargetName="DotRotate8" Storyboard.TargetProperty="Angle" From="315" To="675" Duration="0:0:3.5"/>
+
+                                <DoubleAnimation Storyboard.TargetName="Dot1"
+                                                 Storyboard.TargetProperty="(Canvas.Top)"
+                                                 From="10"
+                                                 To="32"
+                                                 Duration="0:0:4.5"
+                                                 AutoReverse="True"
+                                                 RepeatBehavior="Forever"/>
+                                <DoubleAnimation Storyboard.TargetName="Dot2"
+                                                 Storyboard.TargetProperty="(Canvas.Top)"
+                                                 From="10"
+                                                 To="32"
+                                                 Duration="0:0:4.5"
+                                                 AutoReverse="True"
+                                                 RepeatBehavior="Forever"/>
+                                <DoubleAnimation Storyboard.TargetName="Dot3"
+                                                 Storyboard.TargetProperty="(Canvas.Top)"
+                                                 From="10"
+                                                 To="32"
+                                                 Duration="0:0:4.5"
+                                                 AutoReverse="True"
+                                                 RepeatBehavior="Forever"/>
+                                <DoubleAnimation Storyboard.TargetName="Dot4"
+                                                 Storyboard.TargetProperty="(Canvas.Top)"
+                                                 From="10"
+                                                 To="32"
+                                                 Duration="0:0:4.5"
+                                                 AutoReverse="True"
+                                                 RepeatBehavior="Forever"/>
+                                <DoubleAnimation Storyboard.TargetName="Dot5"
+                                                 Storyboard.TargetProperty="(Canvas.Top)"
+                                                 From="10"
+                                                 To="32"
+                                                 Duration="0:0:4.5"
+                                                 AutoReverse="True"
+                                                 RepeatBehavior="Forever"/>
+                                <DoubleAnimation Storyboard.TargetName="Dot6"
+                                                 Storyboard.TargetProperty="(Canvas.Top)"
+                                                 From="10"
+                                                 To="32"
+                                                 Duration="0:0:4.5"
+                                                 AutoReverse="True"
+                                                 RepeatBehavior="Forever"/>
+                                <DoubleAnimation Storyboard.TargetName="Dot7"
+                                                 Storyboard.TargetProperty="(Canvas.Top)"
+                                                 From="10"
+                                                 To="32"
+                                                 Duration="0:0:4.5"
+                                                 AutoReverse="True"
+                                                 RepeatBehavior="Forever"/>
+                                <DoubleAnimation Storyboard.TargetName="Dot8"
+                                                 Storyboard.TargetProperty="(Canvas.Top)"
+                                                 From="10"
+                                                 To="32"
+                                                 Duration="0:0:4.5"
+                                                 AutoReverse="True"
+                                                 RepeatBehavior="Forever"/>
+
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </EventTrigger>
+                </Canvas.Triggers>
             </Canvas>
+
 
             <!-- 文字區（保持不变） -->
             <TextBlock Text="連線檢查中..." 

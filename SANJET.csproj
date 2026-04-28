@@ -12,6 +12,10 @@
   <ItemGroup>
     <None Remove="UI\Resources\Images\background.png" />
     <None Remove="UI\Resources\Images\camera.png" />
+    <None Remove="UI\Resources\Images\camera原.PNG" />
+    <None Remove="UI\Resources\Images\logo - 100x84.png" />
+    <None Remove="UI\Resources\Images\logo.png" />
+    <None Remove="UI\Resources\Images\poster-04.jpg" />
   </ItemGroup>
 
   <ItemGroup>
@@ -52,6 +56,15 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
     <Resource Include="UI\Resources\Images\camera.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="UI\Resources\Images\camera原.PNG">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="UI\Resources\Images\logo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="UI\Resources\Images\poster-04.jpg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
   </ItemGroup>
