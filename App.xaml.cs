@@ -57,8 +57,9 @@ namespace SANJET
         /// </summary>
         protected override async void OnStartup(StartupEventArgs e)
         {
-            // 設定應用程式只有在明確呼叫 Shutdown() 時才關閉
-            //Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            // 啟動流程會先顯示 LoadingWindow，之後關閉它再顯示 MainWindow。
+            // 若使用預設 OnLastWindowClose，關閉 LoadingWindow 會讓 WPF 在 MainWindow.Show() 前直接關閉應用程式。
+            Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
             try
             {
@@ -68,34 +69,21 @@ namespace SANJET
                     .ConfigureServices((context, services) =>
                     {
                         services.AddLogging(configure => configure.AddDebug().SetMinimumLevel(LogLevel.Debug));
-                        services.AddDbContext<AppDbContext>(options =>
-                            options.UseSqlite(context.Configuration.GetConnectionString("LocalConnection")));
 
-                        // 1. 取得 Local AppData 的路徑 (例如 C:\Users\YourUser\AppData\Local)
+                        // 將 SQLite 放在使用者 LocalAppData，避免安裝目錄沒有寫入權限導致啟動失敗。
                         var localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-
-                        // 2. 在 LocalAppData 中為您的應用程式建立一個專屬資料夾的路徑
                         var appDataPath = Path.Combine(localAppDataPath, "SanjetScada");
-
-                        // 3. 確保這個資料夾存在
                         Directory.CreateDirectory(appDataPath);
 
-                        // 4. 組合出資料庫檔案的完整路徑
                         var dbPath = Path.Combine(appDataPath, "SNAJET_local.db");
-
-                        // 5. 建立新的連接字串
                         var connectionString = $"Data Source={dbPath}";
 
-                        var loggerForDb = services.BuildServiceProvider().GetService<ILogger<App>>();
-                        loggerForDb?.LogInformation("本地資料庫路徑設定為: {DbPath}", dbPath);
+                        services.AddSingleton(new DatabaseSettings(dbPath, connectionString));
+                        services.AddDbContext<AppDbContext>(options => options.UseSqlite(connectionString), ServiceLifetime.Transient);
 
-                        // 6. 使用新的、包含絕對路徑的連接字串
-                        services.AddDbContext<AppDbContext>(options =>
-                            options.UseSqlite(connectionString));
-
-                        services.AddScoped<MainViewModel>();
-                        services.AddScoped<HomeViewModel>();
-                        services.AddScoped<SettingsPageViewModel>();
+                        services.AddSingleton<MainViewModel>();
+                        services.AddTransient<HomeViewModel>();
+                        services.AddTransient<SettingsPageViewModel>();
                         services.AddTransient<LoginViewModel>();
                         services.AddTransient<LoginWindow>();
                         services.AddTransient(sp => new StreamWindow(sp.GetRequiredService<SettingsPageViewModel>()));
@@ -103,7 +91,7 @@ namespace SANJET
 
                         services.AddSingleton<LoadingWindowViewModel>();
                         services.AddTransient<LoadingWindow>();
-                        services.AddSingleton<MainWindow>();
+                        services.AddTransient<MainWindow>();
 
                         services.AddSingleton<IAuthenticationService, AuthenticationService>();
                         services.AddSingleton<IMqttService, MqttService>();
@@ -152,24 +140,17 @@ namespace SANJET
                 var libVLCService = Host.Services.GetRequiredService<ILibVLCInitializationService>();
                 var preWarmTask = libVLCService.PreWarmAsync();
 
-                // 2. 檢查資料庫連接
-                loadingViewModel.StatusText = "檢查資料庫連接...";
-                var dbCheckTask = CheckDatabaseConnectionAsync(Host, appLogger);
+                // 2. 初始化資料庫（第一次啟動時會建立 SQLite 檔案與資料表）
+                loadingViewModel.StatusText = "初始化資料庫...";
+                var dbInitTask = InitializeDatabaseAsync(Host, appLogger);
 
                 // 等待兩項任務完成
-                await Task.WhenAll(preWarmTask, dbCheckTask);
-                bool isConnected = await CheckDatabaseConnectionAsync(Host, appLogger);
+                await Task.WhenAll(preWarmTask, dbInitTask);
+                bool isInitialized = await dbInitTask;
 
-                if (isConnected)
+                if (isInitialized)
                 {
-                    loadingViewModel.StatusText = "初始化資料庫...";
-                    appLogger.LogInformation("Database connection successful. Initializing main application.");
-                    using (var scope = Host.Services.CreateScope())
-                    {
-                        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                        await dbContext.Database.EnsureCreatedAsync();
-                        SeedData(dbContext, appLogger);
-                    }
+                    appLogger.LogInformation("Database initialized successfully. Initializing main application.");
 
                     // 顯示主視窗。登入邏輯將由 MainWindow 的 Loaded 事件觸發。
                     loadingViewModel.StatusText = "初始化完成，正在加載主視窗...";
@@ -179,16 +160,17 @@ namespace SANJET
                     // 給用戶看到初始化完成的反饋
                     await Task.Delay(300);
 
-                    // 任務完成後關閉載入視窗
-                    loadingWindow.Close();
-
                     mainWindow.Show();
+                    Application.Current.ShutdownMode = ShutdownMode.OnMainWindowClose;
+
+                    // MainWindow 已顯示後再關閉 LoadingWindow，避免觸發啟動期間自動關閉。
+                    loadingWindow.Close();
 
                 }
                 else
                 {
-                    appLogger.LogCritical("Database connection failed. Application will shut down.");
-                    MessageBox.Show("無法連接到資料庫，請檢查網路連線或資料庫路徑設定。\n應用程式即將關閉。", "嚴重錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+                    appLogger.LogCritical("Database initialization failed. Application will shut down.");
+                    MessageBox.Show("無法初始化資料庫，請檢查資料庫路徑權限或磁碟狀態。\n應用程式即將關閉。", "嚴重錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
                     Shutdown();
                 }
             }
@@ -203,20 +185,24 @@ namespace SANJET
         }
 
         /// <summary>
-        /// 檢查與資料庫的連線是否正常。
+        /// 初始化資料庫：第一次啟動時建立 SQLite 檔案與資料表，並寫入預設資料。
         /// </summary>
-        private async Task<bool> CheckDatabaseConnectionAsync(IHost host, ILogger<App> logger)
+        private async Task<bool> InitializeDatabaseAsync(IHost host, ILogger<App> logger)
         {
-            logger.LogInformation("Checking database connection...");
             using var scope = host.Services.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var databaseSettings = scope.ServiceProvider.GetRequiredService<DatabaseSettings>();
+
             try
             {
-                return await dbContext.Database.CanConnectAsync();
+                logger.LogInformation("本地資料庫路徑設定為: {DbPath}", databaseSettings.Path);
+                await dbContext.Database.EnsureCreatedAsync();
+                SeedData(dbContext, logger);
+                return true;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to connect to the database.");
+                logger.LogError(ex, "Failed to initialize the database.");
                 return false;
             }
         }
