@@ -13,6 +13,9 @@ namespace SANJET.Core.Models
         public int RunCount { get; set; } = 0; // 預設運轉次數
         public DateTime Timestamp { get; set; }
 
+        // 所屬區域：展機區或測試區。
+        public string Area { get; set; } = "展機區";
+
         // 新增欄位：控制此 Modbus 從設備的 ESP32 的 MQTT ID
         public string? ControllingEsp32MqttId { get; set; }
 

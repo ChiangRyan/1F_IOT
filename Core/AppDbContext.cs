@@ -31,6 +31,7 @@ namespace SANJET.Core
                 entity.HasKey(e => e.Id); // 確認主鍵
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(100); // 例如，名稱必填且最大長度100
                 entity.Property(e => e.ControllingEsp32MqttId).IsRequired();
+                entity.Property(e => e.Area).IsRequired().HasDefaultValue("展機區");
 
                 // 可以為其他屬性添加更多設定，如索引、預設值等   
                 // entity.HasIndex(e => new { e.ControllingEsp32MqttId, e.SlaveId }).IsUnique();
