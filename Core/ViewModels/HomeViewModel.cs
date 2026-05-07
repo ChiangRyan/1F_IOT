@@ -30,6 +30,28 @@ namespace SANJET.Core.ViewModels
         private ObservableCollection<DeviceViewModel> devices = new();
 
         [ObservableProperty]
+        private ObservableCollection<DeviceViewModel> displayAreaDevices = new();
+
+        [ObservableProperty]
+        private ObservableCollection<DeviceViewModel> testAreaDevices = new();
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(ShowSelectedAreaEmptyMessage))]
+        private ObservableCollection<DeviceViewModel> selectedAreaDevices = new();
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(ShowSelectedAreaEmptyMessage))]
+        private bool isAreaSelected;
+
+        [ObservableProperty]
+        private string selectedAreaName = "廠區平面圖";
+
+        [ObservableProperty]
+        private string selectedAreaDescription = "請先點選平面圖上的區域。";
+
+        public bool ShowSelectedAreaEmptyMessage => IsAreaSelected && !SelectedAreaDevices.Any();
+
+        [ObservableProperty]
         private bool canControlDevice;
 
         public HomeViewModel(
@@ -46,6 +68,8 @@ namespace SANJET.Core.ViewModels
         public async Task LoadDevicesAsync()
         {
             Devices.Clear();
+            DisplayAreaDevices.Clear();
+            TestAreaDevices.Clear();
             if (_dbContext.Devices == null)
             {
                 _logger.LogWarning("HomeViewModel.LoadDevicesAsync: _dbContext.Devices is null.");
@@ -73,7 +97,45 @@ namespace SANJET.Core.ViewModels
                                        deviceVm.Name, deviceVm.Id, deviceVm.SlaveId);
                 }
                 Devices.Add(deviceVm);
+                DisplayAreaDevices.Add(deviceVm);
             }
+
+            if (IsAreaSelected && SelectedAreaName == "展示區")
+            {
+                SelectedAreaDevices = DisplayAreaDevices;
+                OnPropertyChanged(nameof(ShowSelectedAreaEmptyMessage));
+            }
+        }
+
+        [RelayCommand]
+        private void SelectArea(string? areaKey)
+        {
+            IsAreaSelected = true;
+
+            if (string.Equals(areaKey, "Test", StringComparison.OrdinalIgnoreCase))
+            {
+                SelectedAreaName = "測試區";
+                SelectedAreaDescription = "測試區目前尚未配置設備，可作為後續新增設備的區域。";
+                SelectedAreaDevices = TestAreaDevices;
+            }
+            else
+            {
+                SelectedAreaName = "展示區";
+                SelectedAreaDescription = "展示區包含原首頁中的所有設備，可在此查看狀態、啟停設備與開啟紀錄。";
+                SelectedAreaDevices = DisplayAreaDevices;
+            }
+
+            OnPropertyChanged(nameof(ShowSelectedAreaEmptyMessage));
+        }
+
+        [RelayCommand]
+        private void BackToFactoryMap()
+        {
+            IsAreaSelected = false;
+            SelectedAreaName = "廠區平面圖";
+            SelectedAreaDescription = "請先點選平面圖上的區域。";
+            SelectedAreaDevices = new ObservableCollection<DeviceViewModel>();
+            OnPropertyChanged(nameof(ShowSelectedAreaEmptyMessage));
         }
 
         public async Task SaveChangesToDeviceAsync(DeviceViewModel deviceVm)
