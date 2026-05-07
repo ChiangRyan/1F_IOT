@@ -21,8 +21,8 @@ namespace SANJET.Core
                 .Build();
 
             var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
-            // 從 configuration 讀取連接字串
-            var connectionString = configuration.GetConnectionString("DefaultConnection");
+            // 從 configuration 讀取連接字串，名稱需與 appsettings.json 保持一致。
+            var connectionString = configuration.GetConnectionString("LocalConnection");
             optionsBuilder.UseSqlite(connectionString);
 
             return new AppDbContext(optionsBuilder.Options);
