@@ -7,9 +7,17 @@ namespace SANJET.UI.Views.Windows
 {
     public partial class LoadingWindow : Window
     {
+        public LoadingWindowViewModel? ViewModel { get; private set; }
+
         public LoadingWindow()
         {
             InitializeComponent();
+        }
+
+        public LoadingWindow(LoadingWindowViewModel viewModel) : this()
+        {
+            ViewModel = viewModel;
+            DataContext = viewModel;
         }
     }
 }

@@ -99,8 +99,10 @@ namespace SANJET
                         services.AddScoped<SettingsPageViewModel>();
                         services.AddTransient<LoginViewModel>();
                         services.AddTransient<LoginWindow>();
+                        services.AddTransient(sp => new StreamWindow(sp.GetRequiredService<SettingsPageViewModel>()));
                         //services.AddTransient<RecordWindow>();
 
+                        services.AddSingleton<LoadingWindowViewModel>();
                         services.AddTransient<LoadingWindow>();
                         services.AddSingleton<MainWindow>();
 
@@ -111,6 +113,7 @@ namespace SANJET
                         services.AddSingleton<INavigationService, NavigationService>();
                         services.AddSingleton<IAudioService, AudioService>();
                         services.AddSingleton<IDatabaseManagementService, DatabaseManagementService>();
+                        services.AddSingleton<ILibVLCInitializationService, LibVLCInitializationService>();
 
                         services.AddHostedService<MqttClientConnectionService>();
                         services.AddHostedService<ModbusPollingService>();
@@ -139,14 +142,28 @@ namespace SANJET
 
                 // 顯示載入視窗
                 var loadingWindow = Host.Services.GetRequiredService<LoadingWindow>();
-                
+                var loadingViewModel = Host.Services.GetRequiredService<LoadingWindowViewModel>();
+                loadingWindow.Show();
 
-                // 執行需要時間的啟動任務
+                // 在顯示載入視窗時，並行執行多項初始化任務以提升性能
+                appLogger.LogInformation("開始並行初始化任務...");
+
+                // 1. 預熱 LibVLC 以加快首次 RTSP 串流連接速度
+                loadingViewModel.StatusText = "預熱 LibVLC 媒體引擎...";
+                var libVLCService = Host.Services.GetRequiredService<ILibVLCInitializationService>();
+                var preWarmTask = libVLCService.PreWarmAsync();
+
+                // 2. 檢查資料庫連接
+                loadingViewModel.StatusText = "檢查資料庫連接...";
+                var dbCheckTask = CheckDatabaseConnectionAsync(Host, appLogger);
+
+                // 等待兩項任務完成
+                await Task.WhenAll(preWarmTask, dbCheckTask);
                 bool isConnected = await CheckDatabaseConnectionAsync(Host, appLogger);
-
 
                 if (isConnected)
                 {
+                    loadingViewModel.StatusText = "初始化資料庫...";
                     appLogger.LogInformation("Database connection successful. Initializing main application.");
                     using (var scope = Host.Services.CreateScope())
                     {
@@ -157,11 +174,13 @@ namespace SANJET
                     }
 
                     // 顯示主視窗。登入邏輯將由 MainWindow 的 Loaded 事件觸發。
+                    loadingViewModel.StatusText = "初始化完成，正在加載主視窗...";
                     var mainWindow = Host.Services.GetRequiredService<MainWindow>();
                     Application.Current.MainWindow = mainWindow; // 明確設定應用程式的主視窗
 
-                    loadingWindow.Show();
-                    await Task.Delay(2500);
+                    // 給用戶看到初始化完成的反饋
+                    await Task.Delay(300);
+
                     // 任務完成後關閉載入視窗
                     loadingWindow.Close();
 

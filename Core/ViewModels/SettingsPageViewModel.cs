@@ -17,6 +17,7 @@ namespace SANJET.Core.ViewModels
         private readonly ILogger<SettingsPageViewModel> _logger;
         private readonly IDatabaseManagementService _dbManagementService;
         private readonly string _rtspSettingsPath;
+        private Action? _autoStartStreamAction;
 
         [ObservableProperty]
         private string _pageTitle = "應用程式設定";
@@ -35,6 +36,21 @@ namespace SANJET.Core.ViewModels
 
         [ObservableProperty]
         private string _rtspStreamPath = "stream1";
+
+        [ObservableProperty]
+        private string _rtspIpAddress2 = "192.168.70.91";
+
+        [ObservableProperty]
+        private string _rtspUsername2 = "SANJET";
+
+        [ObservableProperty]
+        private string _rtspPassword2 = "Sanjet25653819";
+
+        [ObservableProperty]
+        private int _rtspPort2 = 554;
+
+        [ObservableProperty]
+        private string _rtspStreamPath2 = "stream1";
 
         public SettingsPageViewModel(ILogger<SettingsPageViewModel> logger, IDatabaseManagementService dbManagementService)
         {
@@ -65,11 +81,19 @@ namespace SANJET.Core.ViewModels
                     return;
                 }
 
+                // 攝像頭 1
                 RtspIpAddress = settings.IpAddress;
                 RtspUsername = settings.Username;
                 RtspPassword = settings.Password;
                 RtspPort = settings.Port;
                 RtspStreamPath = settings.StreamPath;
+
+                // 攝像頭 2
+                RtspIpAddress2 = settings.IpAddress2 ?? "192.168.70.91";
+                RtspUsername2 = settings.Username2 ?? "SANJET";
+                RtspPassword2 = settings.Password2 ?? "Sanjet25653819";
+                RtspPort2 = settings.Port2 ?? 554;
+                RtspStreamPath2 = settings.StreamPath2 ?? "stream1";
             }
             catch (Exception ex)
             {
@@ -99,6 +123,32 @@ namespace SANJET.Core.ViewModels
                 : $"rtsp://{authPart}{ip}:{RtspPort}/{streamPath}";
         }
 
+        public string BuildRtspUrl1()
+        {
+            return BuildRtspUrl();
+        }
+
+        public string BuildRtspUrl2()
+        {
+            var ip = RtspIpAddress2?.Trim();
+            var user = RtspUsername2?.Trim();
+            var pass = RtspPassword2 ?? string.Empty;
+            var streamPath = (RtspStreamPath2 ?? string.Empty).Trim().TrimStart('/');
+
+            if (string.IsNullOrWhiteSpace(ip))
+            {
+                throw new InvalidOperationException("請先設定攝像頭 2 的 RTSP IP 位址。");
+            }
+
+            var authPart = string.IsNullOrWhiteSpace(user)
+                ? string.Empty
+                : $"{Uri.EscapeDataString(user)}:{Uri.EscapeDataString(pass)}@";
+
+            return string.IsNullOrWhiteSpace(streamPath)
+                ? $"rtsp://{authPart}{ip}:{RtspPort2}"
+                : $"rtsp://{authPart}{ip}:{RtspPort2}/{streamPath}";
+        }
+
         [RelayCommand]
         private void SaveRtspSettings()
         {
@@ -110,7 +160,12 @@ namespace SANJET.Core.ViewModels
                     Username = RtspUsername.Trim(),
                     Password = RtspPassword,
                     Port = RtspPort,
-                    StreamPath = RtspStreamPath.Trim().TrimStart('/')
+                    StreamPath = RtspStreamPath.Trim().TrimStart('/'),
+                    IpAddress2 = RtspIpAddress2.Trim(),
+                    Username2 = RtspUsername2.Trim(),
+                    Password2 = RtspPassword2,
+                    Port2 = RtspPort2,
+                    StreamPath2 = RtspStreamPath2.Trim().TrimStart('/')
                 };
 
                 var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
@@ -124,6 +179,11 @@ namespace SANJET.Core.ViewModels
                 _logger.LogError(ex, "儲存 RTSP 設定失敗。路徑: {Path}", _rtspSettingsPath);
                 MessageBox.Show($"儲存 RTSP 設定失敗：{ex.Message}", "儲存失敗", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        public void SetAutoStartStreamAction(Action action)
+        {
+            _autoStartStreamAction = action;
         }
 
         [RelayCommand]
@@ -183,6 +243,11 @@ namespace SANJET.Core.ViewModels
             public string Password { get; set; } = "Sanjet25653819";
             public int Port { get; set; } = 554;
             public string StreamPath { get; set; } = "stream1";
+            public string IpAddress2 { get; set; } = "192.168.70.91";
+            public string Username2 { get; set; } = "SANJET";
+            public string Password2 { get; set; } = "Sanjet25653819";
+            public int? Port2 { get; set; } = 554;
+            public string StreamPath2 { get; set; } = "stream1";
         }
     }
 }

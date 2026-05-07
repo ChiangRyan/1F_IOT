@@ -229,6 +229,37 @@ namespace SANJET.Core.ViewModels
             _logger.LogInformation("已新增測試區設備 {DeviceName}：ESP32 {Esp32Id}, Slave {SlaveId}。", deviceName, esp32Id, slaveId);
         }
 
+        [RelayCommand]
+        private void SelectArea(string? areaKey)
+        {
+            IsAreaSelected = true;
+
+            if (string.Equals(areaKey, "Test", StringComparison.OrdinalIgnoreCase))
+            {
+                SelectedAreaName = "測試區";
+                SelectedAreaDescription = "測試區目前尚未配置設備，可作為後續新增設備的區域。";
+                SelectedAreaDevices = TestAreaDevices;
+            }
+            else
+            {
+                SelectedAreaName = "展示區";
+                SelectedAreaDescription = "展示區包含原首頁中的所有設備，可在此查看狀態、啟停設備與開啟紀錄。";
+                SelectedAreaDevices = DisplayAreaDevices;
+            }
+
+            OnPropertyChanged(nameof(ShowSelectedAreaEmptyMessage));
+        }
+
+        [RelayCommand]
+        private void BackToFactoryMap()
+        {
+            IsAreaSelected = false;
+            SelectedAreaName = "廠區平面圖";
+            SelectedAreaDescription = "請先點選平面圖上的區域。";
+            SelectedAreaDevices = new ObservableCollection<DeviceViewModel>();
+            OnPropertyChanged(nameof(ShowSelectedAreaEmptyMessage));
+        }
+
         public async Task SaveChangesToDeviceAsync(DeviceViewModel deviceVm)
         {
             if (deviceVm == null || _dbContext.Devices == null) return;

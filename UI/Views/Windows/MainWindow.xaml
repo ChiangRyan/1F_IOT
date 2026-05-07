@@ -19,7 +19,7 @@
         <ImageBrush x:Key="BackgroundImage" ImageSource="pack://application:,,,/UI/Resources/Images/background.png" Stretch="UniformToFill"/>
     </Window.Resources>
 
-    <Grid>
+    <Grid Background="{StaticResource BackgroundImage}">
         <Grid.RowDefinitions>
             <RowDefinition Height="120"/>
             <!-- 工具欄 -->
@@ -31,9 +31,10 @@
 
         <!-- 工具欄 -->
         <Border Grid.Row="0" 
-                BorderBrush="#555555" 
+                BorderBrush="Transparent" 
                 BorderThickness="0,0,0,1" 
-                CornerRadius="25">
+                CornerRadius="25"
+                Opacity="0.8">
             <Border.Background>
                 <SolidColorBrush Color="{DynamicResource {x:Static SystemColors.AppWorkspaceColorKey}}"/>
             </Border.Background>
@@ -134,6 +135,78 @@
                             HorizontalAlignment="Right" 
                             VerticalAlignment="Top" 
                             Margin="0,10,20,0">
+                    <Button x:Name="StreamButton"
+                            Command="{Binding OpenStreamWindowCommand}"
+                            Width="100"
+                            Height="89"
+                            Margin="0"
+                            ToolTip="攝影機"
+                            Padding="0"
+                            BorderThickness="0"
+                            Background="Transparent"
+                            Visibility="{Binding CanViewSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
+
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+
+                                            <Grid>
+
+                                                <!-- 發光層（外圈） -->
+                                                <Border x:Name="glow"
+                                    CornerRadius="10"
+                                    BorderBrush="#00D4FF"
+                                    BorderThickness="3"
+                                    Opacity="0">
+                                                    <Border.Effect>
+                                                        <DropShadowEffect Color="#00D4FF"
+                                                      BlurRadius="20"
+                                                      ShadowDepth="0"
+                                                      Opacity="0.8"/>
+                                                    </Border.Effect>
+                                                </Border>
+
+                                                <!-- 主內容 -->
+                                                <Border x:Name="border"
+                                    CornerRadius="10"
+                                    BorderBrush="#6600D4FF"
+                                    BorderThickness="3"
+                                    Background="Transparent"
+                                    ClipToBounds="True">
+
+                                                    <Image Source="pack://application:,,,/UI/Resources/Images/camera.png"
+                                       Stretch="UniformToFill"/>
+
+                                                </Border>
+
+                                            </Grid>
+
+                                            <ControlTemplate.Triggers>
+
+                                                <!-- 滑鼠移上去 → 發光 -->
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="glow" Property="Opacity" Value="1"/>
+                                                    <Setter TargetName="border" Property="BorderBrush" Value="#00D4FF"/>
+                                                </Trigger>
+
+                                                <!-- 按下 -->
+                                                <Trigger Property="IsPressed" Value="True">
+                                                    <Setter TargetName="border" Property="Opacity" Value="0.7"/>
+                                                    <Setter TargetName="glow" Property="Opacity" Value="0.6"/>
+                                                </Trigger>
+
+                                            </ControlTemplate.Triggers>
+
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+
+                    </Button>
+
                     <Button x:Name="LoginButton"
                             Content="登入" 
                             Command="{Binding ShowLoginCommand}" 
