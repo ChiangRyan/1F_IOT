@@ -11,6 +11,7 @@ using SANJET.Core.Services;
 using SANJET.Core.ViewModels;
 using SANJET.UI.Views.Windows;
 using System;
+using System.Data;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -168,6 +169,7 @@ namespace SANJET
                     {
                         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                         await dbContext.Database.EnsureCreatedAsync();
+                        await EnsureDeviceSchemaAsync(dbContext, appLogger);
                         SeedData(dbContext, appLogger);
                     }
 
@@ -221,6 +223,50 @@ namespace SANJET
             }
         }
 
+
+        private async Task EnsureDeviceSchemaAsync(AppDbContext dbContext, ILogger<App> logger)
+        {
+            var connection = dbContext.Database.GetDbConnection();
+            bool shouldCloseConnection = connection.State != ConnectionState.Open;
+
+            if (shouldCloseConnection)
+            {
+                await connection.OpenAsync();
+            }
+
+            try
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText = "PRAGMA table_info('Devices')";
+
+                bool hasAreaColumn = false;
+                await using (var reader = await command.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        if (string.Equals(reader[1]?.ToString(), "Area", StringComparison.OrdinalIgnoreCase))
+                        {
+                            hasAreaColumn = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!hasAreaColumn)
+                {
+                    logger.LogInformation("Devices 表缺少 Area 欄位，正在新增並將既有設備歸類為展示區。");
+                    await dbContext.Database.ExecuteSqlRawAsync("ALTER TABLE Devices ADD COLUMN Area TEXT NOT NULL DEFAULT 'Display'");
+                }
+            }
+            finally
+            {
+                if (shouldCloseConnection)
+                {
+                    await connection.CloseAsync();
+                }
+            }
+        }
+
         /// <summary>
         /// 初始化資料庫的種子資料。
         /// </summary>
@@ -248,19 +294,19 @@ namespace SANJET
                 {
                     logger.LogInformation("Devices 表為空，開始插入預設設備資料...");
                     dbContext.Devices.AddRange(
-                        new Device { Name = "DKSS", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 1, Status = "閒置", IsOperational = true, RunCount = 0 },
-                        new Device { Name = "HBC2", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 2, Status = "閒置", IsOperational = true, RunCount = 0 },
-                        new Device { Name = "DVC雙層", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 3, Status = "閒置", IsOperational = false, RunCount = 0 },
-                        new Device { Name = "預設設備4", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 4, Status = "閒置", IsOperational = false, RunCount = 0 },
-                        new Device { Name = "預設設備5", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 5, Status = "閒置", IsOperational = false, RunCount = 0 },
-                        new Device { Name = "預設設備6", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 6, Status = "閒置", IsOperational = false, RunCount = 0 },
-                        new Device { Name = "預設設備7", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 7, Status = "閒置", IsOperational = false, RunCount = 0 },
-                        new Device { Name = "預設設備8", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 8, Status = "閒置", IsOperational = false, RunCount = 0 },
-                        new Device { Name = "預設設備9", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 9, Status = "閒置", IsOperational = false, RunCount = 0 },
-                        new Device { Name = "預設設備10", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 10, Status = "閒置", IsOperational = false, RunCount = 0 },
-                        new Device { Name = "預設設備11", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 11, Status = "閒置", IsOperational = false, RunCount = 0 },
+                        new Device { Area = "Display", Name = "DKSS", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 1, Status = "閒置", IsOperational = true, RunCount = 0 },
+                        new Device { Area = "Display", Name = "HBC2", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 2, Status = "閒置", IsOperational = true, RunCount = 0 },
+                        new Device { Area = "Display", Name = "DVC雙層", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 3, Status = "閒置", IsOperational = false, RunCount = 0 },
+                        new Device { Area = "Display", Name = "預設設備4", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 4, Status = "閒置", IsOperational = false, RunCount = 0 },
+                        new Device { Area = "Display", Name = "預設設備5", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 5, Status = "閒置", IsOperational = false, RunCount = 0 },
+                        new Device { Area = "Display", Name = "預設設備6", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 6, Status = "閒置", IsOperational = false, RunCount = 0 },
+                        new Device { Area = "Display", Name = "預設設備7", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 7, Status = "閒置", IsOperational = false, RunCount = 0 },
+                        new Device { Area = "Display", Name = "預設設備8", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 8, Status = "閒置", IsOperational = false, RunCount = 0 },
+                        new Device { Area = "Display", Name = "預設設備9", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 9, Status = "閒置", IsOperational = false, RunCount = 0 },
+                        new Device { Area = "Display", Name = "預設設備10", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 10, Status = "閒置", IsOperational = false, RunCount = 0 },
+                        new Device { Area = "Display", Name = "預設設備11", ControllingEsp32MqttId = "ESP32_RS485", SlaveId = 11, Status = "閒置", IsOperational = false, RunCount = 0 },
 
-                        new Device { Name = "SRP02位移", ControllingEsp32MqttId = "ESP32_MdTCP", SlaveId = 1, Status = "閒置", IsOperational = true, RunCount = 0 }
+                        new Device { Area = "Display", Name = "SRP02位移", ControllingEsp32MqttId = "ESP32_MdTCP", SlaveId = 1, Status = "閒置", IsOperational = true, RunCount = 0 }
                     );
                 }
                 else

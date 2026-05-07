@@ -114,6 +114,7 @@
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -210,7 +211,47 @@
             </StackPanel>
         </DockPanel>
 
-        <TextBlock Grid.Row="1"
+        <Border Grid.Row="1"
+                Margin="0,0,0,12"
+                Padding="14"
+                CornerRadius="8"
+                BorderBrush="#3F5DA8"
+                BorderThickness="1"
+                Background="#F3F6FF"
+                VerticalAlignment="Top"
+                Visibility="{Binding IsTestAreaSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel>
+                <TextBlock Text="新增測試區設備" FontSize="22" FontWeight="Bold" Foreground="#253E88"/>
+                <TextBlock Text="新增後輪詢服務會依 ESP32 MQTT ID 與 Modbus 從站 ID 發送讀取命令；請讓 ESP32 依既有 MQTT topic 回覆資料。"
+                           FontSize="15" Foreground="#51607A" TextWrapping="Wrap" Margin="0,4,0,12"/>
+
+                <StackPanel Orientation="Horizontal">
+                    <StackPanel Margin="0,0,12,0">
+                        <TextBlock Text="設備名稱" FontSize="14" FontWeight="SemiBold"/>
+                        <TextBox Width="160" Height="30" Text="{Binding NewTestDeviceName, UpdateSourceTrigger=PropertyChanged}"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,12,0">
+                        <TextBlock Text="ESP32 MQTT ID" FontSize="14" FontWeight="SemiBold"/>
+                        <TextBox Width="180" Height="30" Text="{Binding NewTestDeviceEsp32Id, UpdateSourceTrigger=PropertyChanged}"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,12,0">
+                        <TextBlock Text="從站 ID" FontSize="14" FontWeight="SemiBold"/>
+                        <TextBox Width="90" Height="30" Text="{Binding NewTestDeviceSlaveIdText, UpdateSourceTrigger=PropertyChanged}"/>
+                    </StackPanel>
+                    <Button Content="新增設備"
+                            Width="100"
+                            Height="32"
+                            Margin="0,18,0,0"
+                            Background="#3F5DA8"
+                            Foreground="White"
+                            FontWeight="Bold"
+                            Command="{Binding AddTestAreaDeviceCommand}"
+                            IsEnabled="{Binding CanControlDevice}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Grid.Row="2"
                    Text="此區域尚未配置設備。"
                    FontSize="24"
                    FontWeight="SemiBold"
@@ -219,16 +260,16 @@
                    VerticalAlignment="Center"
                    Visibility="{Binding ShowSelectedAreaEmptyMessage, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
-    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
                   Visibility="{Binding IsAreaSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
-        <ItemsControl ItemsSource="{Binding SelectedAreaDevices}">
-            <ItemsControl.ItemsPanel>
+            <ItemsControl ItemsSource="{Binding SelectedAreaDevices}">
+                <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <UniformGrid Columns="6"/>
                 </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
+                </ItemsControl.ItemsPanel>
 
-            <ItemsControl.ItemTemplate>
+                <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <Border Margin="5" Padding="10" CornerRadius="8" BorderBrush="Gray" BorderThickness="1">
                         <Border.Style>
@@ -356,9 +397,9 @@
 
                     </Border>
                 </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
-    </ScrollViewer>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
 
     </Grid>
 </Page>
