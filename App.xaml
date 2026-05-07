@@ -11,6 +11,7 @@
             <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
             <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
             <converters:BooleanInverterConverter x:Key="BooleanInverterConverter"/>
+            <converters:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
 
             <!-- 其他全局資源可以在此處添加 -->
             <!-- 例如全局樣式、顏色資源等 -->

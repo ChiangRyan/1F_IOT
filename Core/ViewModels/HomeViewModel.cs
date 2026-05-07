@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SANJET.Core.Interfaces;
+using SANJET.Core.Models;
 using SANJET.Core.Services;
 using SANJET.UI.Views.Windows;
 using System;
@@ -115,7 +116,7 @@ namespace SANJET.Core.ViewModels
             if (string.Equals(areaKey, "Test", StringComparison.OrdinalIgnoreCase))
             {
                 SelectedAreaName = "測試區";
-                SelectedAreaDescription = "測試區目前尚未配置設備，可作為後續新增設備的區域。";
+                SelectedAreaDescription = "測試區用於新增和測試設備。可透過 RS485 連接多達 5 個 Modbus 從站。";
                 SelectedAreaDevices = TestAreaDevices;
             }
             else
@@ -138,6 +139,76 @@ namespace SANJET.Core.ViewModels
             OnPropertyChanged(nameof(ShowSelectedAreaEmptyMessage));
         }
 
+        /// <summary>
+        /// 打開測試區設備添加對話框
+        /// </summary>
+        [RelayCommand]
+        private void OpenAddTestDeviceDialog()
+        {
+            if (App.Host == null)
+            {
+                MessageBox.Show("應用程式服務不可用，無法打開對話框。", "錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+                _logger.LogError("App.Host 為 null，無法打開 AddTestDeviceWindow。");
+                return;
+            }
+
+            try
+            {
+                using var scope = App.Host.Services.CreateScope();
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<AddTestDeviceViewModel>>();
+
+                var viewModel = new AddTestDeviceViewModel(this, logger);
+                var window = new SANJET.UI.Views.Windows.AddTestDeviceWindow(viewModel)
+                {
+                    Owner = Application.Current.MainWindow,
+                    Title = "添加測試區設備"
+                };
+
+                _logger.LogInformation("打開添加測試區設備對話框");
+                window.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "打開添加測試區設備對話框時發生錯誤");
+                MessageBox.Show($"無法打開對話框：{ex.Message}", "錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 打開展機區設備添加對話框
+        /// </summary>
+        [RelayCommand]
+        private void OpenAddDisplayAreaDeviceDialog()
+        {
+            if (App.Host == null)
+            {
+                MessageBox.Show("應用程式服務不可用，無法打開對話框。", "錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+                _logger.LogError("App.Host 為 null，無法打開 AddDisplayAreaDeviceWindow。");
+                return;
+            }
+
+            try
+            {
+                using var scope = App.Host.Services.CreateScope();
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<AddDisplayAreaDeviceViewModel>>();
+
+                var viewModel = new AddDisplayAreaDeviceViewModel(this, logger);
+                var window = new SANJET.UI.Views.Windows.AddDisplayAreaDeviceWindow(viewModel)
+                {
+                    Owner = Application.Current.MainWindow,
+                    Title = "添加展機區設備"
+                };
+
+                _logger.LogInformation("打開添加展機區設備對話框");
+                window.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "打開添加展機區設備對話框時發生錯誤");
+                MessageBox.Show($"無法打開對話框：{ex.Message}", "錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         public async Task SaveChangesToDeviceAsync(DeviceViewModel deviceVm)
         {
             if (deviceVm == null || _dbContext.Devices == null) return;
@@ -150,10 +221,222 @@ namespace SANJET.Core.ViewModels
                 _dbContext.Devices.Update(deviceInDb);
                 await _dbContext.SaveChangesAsync();
 
-                
+
 
                 deviceVm.OriginalName = deviceVm.Name;
                 _logger.LogInformation("已保存設備 ID {DeviceId} 的變更。", deviceVm.Id);
+            }
+        }
+
+        /// <summary>
+        /// 在測試區添加新的 ESP32 RS485 設備
+        /// </summary>
+        /// <param name="deviceName">設備名稱</param>
+        /// <param name="esp32MqttId">ESP32 的 MQTT ID (例如: ESP32_TEST_RS485)</param>
+        /// <param name="slaveId">Modbus Slave ID (1-247, 測試區建議使用 100-110 避免衝突)</param>
+        /// <returns>成功則回傳 true</returns>
+        public async Task<bool> AddTestAreaDeviceAsync(string deviceName, string esp32MqttId, byte slaveId)
+        {
+            if (string.IsNullOrWhiteSpace(deviceName) || string.IsNullOrWhiteSpace(esp32MqttId) || slaveId == 0)
+            {
+                _logger.LogWarning("添加測試區設備失敗：無效的參數。設備名稱: {Name}, ESP32 ID: {Esp32Id}, Slave ID: {SlaveId}",
+                                   deviceName, esp32MqttId, slaveId);
+                return false;
+            }
+
+            if (_dbContext.Devices == null)
+            {
+                _logger.LogError("數據庫上下文中 Devices DbSet 為 null，無法添加設備。");
+                return false;
+            }
+
+            try
+            {
+                // 檢查是否已有相同的 ESP32 + Slave ID 組合
+                var existingDevice = await _dbContext.Devices
+                    .FirstOrDefaultAsync(d => d.ControllingEsp32MqttId == esp32MqttId && d.SlaveId == slaveId);
+
+                if (existingDevice != null)
+                {
+                    _logger.LogWarning("已存在相同的設備組合。ESP32: {Esp32Id}, Slave ID: {SlaveId}", esp32MqttId, slaveId);
+                    return false;
+                }
+
+                // 建立新設備
+                var newDevice = new Device
+                {
+                    Name = deviceName,
+                    ControllingEsp32MqttId = esp32MqttId,
+                    SlaveId = slaveId,
+                    Status = "閒置",
+                    IsOperational = true,
+                    RunCount = 0,
+                    Timestamp = DateTime.UtcNow
+                };
+
+                _dbContext.Devices.Add(newDevice);
+                await _dbContext.SaveChangesAsync();
+
+                // 重新載入設備列表以反映新增的設備
+                await LoadDevicesAsync();
+
+                _logger.LogInformation("成功添加測試區設備：名稱 {Name}, ESP32: {Esp32Id}, Slave ID: {SlaveId}",
+                                       deviceName, esp32MqttId, slaveId);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "添加測試區設備時發生錯誤。設備名稱: {Name}, ESP32: {Esp32Id}, Slave ID: {SlaveId}",
+                                 deviceName, esp32MqttId, slaveId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 在展機區添加新的 ESP32 RS485 設備
+        /// </summary>
+        /// <param name="deviceName">設備名稱</param>
+        /// <param name="esp32MqttId">ESP32 的 MQTT ID (例如: ESP32_DISPLAY_RS485)</param>
+        /// <param name="slaveId">Modbus Slave ID (1-247, 展機區建議使用 1-50 避免衝突)</param>
+        /// <returns>成功則回傳 true</returns>
+        public async Task<bool> AddDisplayAreaDeviceAsync(string deviceName, string esp32MqttId, byte slaveId)
+        {
+            if (string.IsNullOrWhiteSpace(deviceName) || string.IsNullOrWhiteSpace(esp32MqttId) || slaveId == 0)
+            {
+                _logger.LogWarning("添加展機區設備失敗：無效的參數。設備名稱: {Name}, ESP32 ID: {Esp32Id}, Slave ID: {SlaveId}",
+                                   deviceName, esp32MqttId, slaveId);
+                return false;
+            }
+
+            if (_dbContext.Devices == null)
+            {
+                _logger.LogError("數據庫上下文中 Devices DbSet 為 null，無法添加設備。");
+                return false;
+            }
+
+            try
+            {
+                // 檢查是否已有相同的 ESP32 + Slave ID 組合
+                var existingDevice = await _dbContext.Devices
+                    .FirstOrDefaultAsync(d => d.ControllingEsp32MqttId == esp32MqttId && d.SlaveId == slaveId);
+
+                if (existingDevice != null)
+                {
+                    _logger.LogWarning("已存在相同的設備組合。ESP32: {Esp32Id}, Slave ID: {SlaveId}", esp32MqttId, slaveId);
+                    return false;
+                }
+
+                // 建立新設備
+                var newDevice = new Device
+                {
+                    Name = deviceName,
+                    ControllingEsp32MqttId = esp32MqttId,
+                    SlaveId = slaveId,
+                    Status = "閒置",
+                    IsOperational = true,
+                    RunCount = 0,
+                    Timestamp = DateTime.UtcNow
+                };
+
+                _dbContext.Devices.Add(newDevice);
+                await _dbContext.SaveChangesAsync();
+
+                // 重新載入設備列表以反映新增的設備
+                await LoadDevicesAsync();
+
+                _logger.LogInformation("成功添加展機區設備：名稱 {Name}, ESP32: {Esp32Id}, Slave ID: {SlaveId}",
+                                       deviceName, esp32MqttId, slaveId);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "添加展機區設備時發生錯誤。設備名稱: {Name}, ESP32: {Esp32Id}, Slave ID: {SlaveId}",
+                                 deviceName, esp32MqttId, slaveId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 從測試區移除設備
+        /// </summary>
+        public async Task<bool> RemoveTestAreaDeviceAsync(int deviceId)
+        {
+            if (_dbContext.Devices == null)
+            {
+                _logger.LogError("數據庫上下文中 Devices DbSet 為 null，無法移除設備。");
+                return false;
+            }
+
+            try
+            {
+                var deviceToRemove = await _dbContext.Devices.FindAsync(deviceId);
+                if (deviceToRemove == null)
+                {
+                    _logger.LogWarning("找不到要移除的設備，ID: {DeviceId}", deviceId);
+                    return false;
+                }
+
+                _dbContext.Devices.Remove(deviceToRemove);
+                await _dbContext.SaveChangesAsync();
+
+                // 從 UI 集合中移除
+                var vmToRemove = Devices.FirstOrDefault(d => d.Id == deviceId);
+                if (vmToRemove != null)
+                {
+                    Devices.Remove(vmToRemove);
+                    TestAreaDevices.Remove(vmToRemove);
+                }
+
+                _logger.LogInformation("成功移除測試區設備，ID: {DeviceId}, 名稱: {DeviceName}",
+                                       deviceId, deviceToRemove.Name);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "移除測試區設備時發生錯誤，ID: {DeviceId}", deviceId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 從展機區移除設備
+        /// </summary>
+        public async Task<bool> RemoveDisplayAreaDeviceAsync(int deviceId)
+        {
+            if (_dbContext.Devices == null)
+            {
+                _logger.LogError("數據庫上下文中 Devices DbSet 為 null，無法移除設備。");
+                return false;
+            }
+
+            try
+            {
+                var deviceToRemove = await _dbContext.Devices.FindAsync(deviceId);
+                if (deviceToRemove == null)
+                {
+                    _logger.LogWarning("找不到要移除的設備，ID: {DeviceId}", deviceId);
+                    return false;
+                }
+
+                _dbContext.Devices.Remove(deviceToRemove);
+                await _dbContext.SaveChangesAsync();
+
+                // 從 UI 集合中移除
+                var vmToRemove = Devices.FirstOrDefault(d => d.Id == deviceId);
+                if (vmToRemove != null)
+                {
+                    Devices.Remove(vmToRemove);
+                    DisplayAreaDevices.Remove(vmToRemove);
+                }
+
+                _logger.LogInformation("成功移除展機區設備，ID: {DeviceId}, 名稱: {DeviceName}",
+                                       deviceId, deviceToRemove.Name);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "移除展機區設備時發生錯誤，ID: {DeviceId}", deviceId);
+                return false;
             }
         }
 

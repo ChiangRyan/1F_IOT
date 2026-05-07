@@ -55,4 +55,26 @@ namespace SANJET.UI.Converters
             return DependencyProperty.UnsetValue; // 或者返回 false
         }
     }
+
+    /// <summary>
+    /// 字符串相等時顯示，不相等時隱藏
+    /// 使用方式：Visibility="{Binding SelectedAreaName, Converter={StaticResource StringToVisibilityConverter}, ConverterParameter=測試區}"
+    /// </summary>
+    public class StringToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            string stringValue = value as string ?? string.Empty;
+            string compareValue = parameter as string ?? string.Empty;
+
+            return stringValue == compareValue
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return DependencyProperty.UnsetValue;
+        }
+    }
 }

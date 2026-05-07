@@ -204,6 +204,28 @@
                     Background="#4F6472"
                     Foreground="White"
                     FontWeight="Bold"/>
+            <!-- 添加設備按鈕（測試區） -->
+            <Button Content="添加設備"
+                    DockPanel.Dock="Right"
+                    Width="100"
+                    Height="38"
+                    Margin="0,0,0,0"
+                    Command="{Binding OpenAddTestDeviceDialogCommand}"
+                    Background="#2196F3"
+                    Foreground="White"
+                    FontWeight="Bold"
+                    Visibility="{Binding SelectedAreaName, Converter={StaticResource StringToVisibilityConverter}, ConverterParameter=測試區}"/>
+            <!-- 添加設備按鈕（展機區） -->
+            <Button Content="添加設備"
+                    DockPanel.Dock="Right"
+                    Width="100"
+                    Height="38"
+                    Margin="0,0,0,0"
+                    Command="{Binding OpenAddDisplayAreaDeviceDialogCommand}"
+                    Background="#2196F3"
+                    Foreground="White"
+                    FontWeight="Bold"
+                    Visibility="{Binding SelectedAreaName, Converter={StaticResource StringToVisibilityConverter}, ConverterParameter=展機區}"/>
             <StackPanel>
                 <TextBlock Text="{Binding SelectedAreaName}" FontSize="24" FontWeight="Bold" Foreground="#17313F"/>
                 <TextBlock Text="{Binding SelectedAreaDescription}" FontSize="17" Foreground="#50636F" TextWrapping="Wrap"/>
