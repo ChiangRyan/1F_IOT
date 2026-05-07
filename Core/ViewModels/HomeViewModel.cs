@@ -30,6 +30,40 @@ namespace SANJET.Core.ViewModels
         private ObservableCollection<DeviceViewModel> devices = new();
 
         [ObservableProperty]
+        private ObservableCollection<DeviceViewModel> displayAreaDevices = new();
+
+        [ObservableProperty]
+        private ObservableCollection<DeviceViewModel> testAreaDevices = new();
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(ShowSelectedAreaEmptyMessage))]
+        private ObservableCollection<DeviceViewModel> selectedAreaDevices = new();
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(ShowSelectedAreaEmptyMessage))]
+        [NotifyPropertyChangedFor(nameof(IsTestAreaSelected))]
+        private bool isAreaSelected;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsTestAreaSelected))]
+        private string selectedAreaName = "廠區平面圖";
+
+        [ObservableProperty]
+        private string selectedAreaDescription = "請先點選平面圖上的區域。";
+
+        public bool ShowSelectedAreaEmptyMessage => IsAreaSelected && !SelectedAreaDevices.Any();
+        public bool IsTestAreaSelected => IsAreaSelected && SelectedAreaName == "測試區";
+
+        [ObservableProperty]
+        private string newTestDeviceName = string.Empty;
+
+        [ObservableProperty]
+        private string newTestDeviceEsp32Id = string.Empty;
+
+        [ObservableProperty]
+        private string newTestDeviceSlaveIdText = string.Empty;
+
+        [ObservableProperty]
         private bool canControlDevice;
 
         public HomeViewModel(
@@ -46,6 +80,8 @@ namespace SANJET.Core.ViewModels
         public async Task LoadDevicesAsync()
         {
             Devices.Clear();
+            DisplayAreaDevices.Clear();
+            TestAreaDevices.Clear();
             if (_dbContext.Devices == null)
             {
                 _logger.LogWarning("HomeViewModel.LoadDevicesAsync: _dbContext.Devices is null.");
@@ -64,7 +100,8 @@ namespace SANJET.Core.ViewModels
                     IsOperational = deviceEntity.IsOperational,
                     RunCount = deviceEntity.RunCount,
                     IsEditingName = false,
-                    ControllingEsp32MqttId = deviceEntity.ControllingEsp32MqttId
+                    ControllingEsp32MqttId = deviceEntity.ControllingEsp32MqttId,
+                    Area = string.IsNullOrWhiteSpace(deviceEntity.Area) ? "Display" : deviceEntity.Area
                 };
 
                 if (string.IsNullOrEmpty(deviceVm.ControllingEsp32MqttId))
@@ -73,7 +110,123 @@ namespace SANJET.Core.ViewModels
                                        deviceVm.Name, deviceVm.Id, deviceVm.SlaveId);
                 }
                 Devices.Add(deviceVm);
+                if (string.Equals(deviceVm.Area, "Test", StringComparison.OrdinalIgnoreCase))
+                {
+                    TestAreaDevices.Add(deviceVm);
+                }
+                else
+                {
+                    DisplayAreaDevices.Add(deviceVm);
+                }
             }
+
+            if (IsAreaSelected)
+            {
+                SelectedAreaDevices = IsTestAreaSelected ? TestAreaDevices : DisplayAreaDevices;
+                OnPropertyChanged(nameof(ShowSelectedAreaEmptyMessage));
+            }
+        }
+
+        [RelayCommand]
+        private void SelectArea(string? areaKey)
+        {
+            IsAreaSelected = true;
+
+            if (string.Equals(areaKey, "Test", StringComparison.OrdinalIgnoreCase))
+            {
+                SelectedAreaName = "測試區";
+                SelectedAreaDescription = "測試區目前尚未配置設備，可作為後續新增設備的區域。";
+                SelectedAreaDevices = TestAreaDevices;
+            }
+            else
+            {
+                SelectedAreaName = "展示區";
+                SelectedAreaDescription = "展示區包含原首頁中的所有設備，可在此查看狀態、啟停設備與開啟紀錄。";
+                SelectedAreaDevices = DisplayAreaDevices;
+            }
+
+            OnPropertyChanged(nameof(ShowSelectedAreaEmptyMessage));
+        }
+
+        [RelayCommand]
+        private void BackToFactoryMap()
+        {
+            IsAreaSelected = false;
+            SelectedAreaName = "廠區平面圖";
+            SelectedAreaDescription = "請先點選平面圖上的區域。";
+            SelectedAreaDevices = new ObservableCollection<DeviceViewModel>();
+            OnPropertyChanged(nameof(ShowSelectedAreaEmptyMessage));
+        }
+
+        [RelayCommand]
+        private async Task AddTestAreaDeviceAsync()
+        {
+            string esp32Id = NewTestDeviceEsp32Id.Trim();
+            string deviceName = string.IsNullOrWhiteSpace(NewTestDeviceName) ? $"測試設備{TestAreaDevices.Count + 1}" : NewTestDeviceName.Trim();
+
+            if (string.IsNullOrWhiteSpace(esp32Id))
+            {
+                MessageBox.Show("請輸入 ESP32 MQTT ID。", "新增測試區設備", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (!byte.TryParse(NewTestDeviceSlaveIdText, out byte slaveId) || slaveId == 0)
+            {
+                MessageBox.Show("請輸入 1 到 255 之間的 Modbus 從站 ID。", "新增測試區設備", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            bool duplicateExists = await _dbContext.Devices.AnyAsync(d =>
+                d.ControllingEsp32MqttId == esp32Id && d.SlaveId == slaveId);
+
+            if (duplicateExists)
+            {
+                MessageBox.Show($"ESP32 '{esp32Id}' 的從站 ID {slaveId} 已存在，請勿重複新增。", "新增測試區設備", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var deviceEntity = new SANJET.Core.Models.Device
+            {
+                Name = deviceName,
+                ControllingEsp32MqttId = esp32Id,
+                SlaveId = slaveId,
+                Status = "閒置",
+                Area = "Test",
+                IsOperational = true,
+                RunCount = 0,
+                Timestamp = DateTime.UtcNow
+            };
+
+            _dbContext.Devices.Add(deviceEntity);
+            await _dbContext.SaveChangesAsync();
+
+            var deviceVm = new DeviceViewModel(this, _mainViewModel, _logger, _audioService)
+            {
+                Id = deviceEntity.Id,
+                Name = deviceEntity.Name,
+                OriginalName = deviceEntity.Name,
+                SlaveId = deviceEntity.SlaveId,
+                Status = deviceEntity.Status,
+                Area = deviceEntity.Area,
+                IsOperational = deviceEntity.IsOperational,
+                RunCount = deviceEntity.RunCount,
+                IsEditingName = false,
+                ControllingEsp32MqttId = deviceEntity.ControllingEsp32MqttId
+            };
+
+            Devices.Add(deviceVm);
+            TestAreaDevices.Add(deviceVm);
+            if (IsTestAreaSelected)
+            {
+                SelectedAreaDevices = TestAreaDevices;
+            }
+
+            NewTestDeviceName = string.Empty;
+            NewTestDeviceEsp32Id = string.Empty;
+            NewTestDeviceSlaveIdText = string.Empty;
+
+            OnPropertyChanged(nameof(ShowSelectedAreaEmptyMessage));
+            _logger.LogInformation("已新增測試區設備 {DeviceName}：ESP32 {Esp32Id}, Slave {SlaveId}。", deviceName, esp32Id, slaveId);
         }
 
         public async Task SaveChangesToDeviceAsync(DeviceViewModel deviceVm)
@@ -84,6 +237,7 @@ namespace SANJET.Core.ViewModels
             if (deviceInDb != null)
             {
                 deviceInDb.Name = deviceVm.Name;
+                deviceInDb.Area = string.IsNullOrWhiteSpace(deviceVm.Area) ? "Display" : deviceVm.Area;
                 deviceInDb.IsOperational = deviceVm.IsOperational;
                 _dbContext.Devices.Update(deviceInDb);
                 await _dbContext.SaveChangesAsync();
@@ -223,6 +377,9 @@ namespace SANJET.Core.ViewModels
 
         [ObservableProperty]
         private string? controllingEsp32MqttId;
+
+        [ObservableProperty]
+        private string area = "Display";
 
         private const ushort MODBUS_CONTROL_REGISTER_ADDRESS = 0;
         private const ushort MODBUS_VALUE_START = 1;

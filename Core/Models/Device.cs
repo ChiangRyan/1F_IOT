@@ -9,6 +9,7 @@ namespace SANJET.Core.Models
         //public string IpAddress { get; set; } = string.Empty;
         public int SlaveId { get; set; }
         public string Status { get; set; } = "閒置"; // 預設狀態
+        public string Area { get; set; } = "Display"; // Display=展示區，Test=測試區
         public bool IsOperational { get; set; } = true; // 預設為可操作
         public int RunCount { get; set; } = 0; // 預設運轉次數
         public DateTime Timestamp { get; set; }

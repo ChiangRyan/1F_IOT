@@ -111,15 +111,166 @@
         </Style>
     </Page.Resources>
 
-    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-        <ItemsControl ItemsSource="{Binding Devices}">
-            <ItemsControl.ItemsPanel>
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 廠區平面圖：點選區域後進入該區設備列表 -->
+        <Border Grid.Row="0" Margin="0,0,0,16" Padding="18" CornerRadius="12" BorderBrush="#4F6472" BorderThickness="1" Background="#EAF1F5"
+                Visibility="{Binding IsAreaSelected, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Margin="0,0,0,14">
+                    <TextBlock Text="廠區平面圖" FontSize="32" FontWeight="Bold" Foreground="#17313F"/>
+                    <TextBlock Text="請點選下方區域進入設備監控。現有首頁設備已歸類於展示區，測試區可作為後續新增設備使用。"
+                               FontSize="18" Foreground="#50636F" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                </StackPanel>
+
+                <Grid Grid.Row="1" MinHeight="360">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="1.15*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="0"
+                            Margin="0,0,12,0"
+                            Padding="16"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"
+                            Background="#DDEFE6"
+                            BorderBrush="#2E7D59"
+                            BorderThickness="3"
+                            Command="{Binding SelectAreaCommand}"
+                            CommandParameter="Display">
+                        <Grid>
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                <TextBlock Text="展示區" FontSize="36" FontWeight="Bold" Foreground="#1F5F43" HorizontalAlignment="Center"/>
+                                <TextBlock Text="現有首頁設備" FontSize="20" Foreground="#2F6E51" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                <TextBlock Text="點選進入" FontSize="18" Foreground="#4D7F65" HorizontalAlignment="Center" Margin="0,18,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Button>
+
+                    <Button Grid.Row="0" Grid.Column="1"
+                            Margin="12,0,0,8"
+                            Padding="16"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"
+                            Background="#E7ECFA"
+                            BorderBrush="#3F5DA8"
+                            BorderThickness="3"
+                            Command="{Binding SelectAreaCommand}"
+                            CommandParameter="Test">
+                        <Grid>
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                <TextBlock Text="測試區" FontSize="32" FontWeight="Bold" Foreground="#253E88" HorizontalAlignment="Center"/>
+                                <TextBlock Text="新增區域" FontSize="18" Foreground="#5167A6" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                <TextBlock Text="點選進入" FontSize="16" Foreground="#6174AF" HorizontalAlignment="Center" Margin="0,14,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Button>
+
+                    <Border Grid.Row="1" Grid.Column="1" Margin="12,8,0,0" CornerRadius="8" Background="#FFF7E7" BorderBrush="#D6A64D" BorderThickness="2">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <TextBlock Text="共用走道 / 緩衝區" FontSize="24" FontWeight="SemiBold" Foreground="#7A5A16" HorizontalAlignment="Center"/>
+                            <TextBlock Text="保留廠區動線標示" FontSize="16" Foreground="#8C6E2E" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <TextBlock Grid.Row="2" Margin="0,14,0,0" Text="提示：點選展示區或測試區即可查看該區設備。" FontSize="16" Foreground="#657782"/>
+            </Grid>
+        </Border>
+
+        <!-- 區域設備列表 -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,12"
+                   Visibility="{Binding IsAreaSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Button Content="返回平面圖"
+                    DockPanel.Dock="Left"
+                    Width="130"
+                    Height="38"
+                    Margin="0,0,14,0"
+                    Command="{Binding BackToFactoryMapCommand}"
+                    Background="#4F6472"
+                    Foreground="White"
+                    FontWeight="Bold"/>
+            <StackPanel>
+                <TextBlock Text="{Binding SelectedAreaName}" FontSize="30" FontWeight="Bold" Foreground="#17313F"/>
+                <TextBlock Text="{Binding SelectedAreaDescription}" FontSize="17" Foreground="#50636F" TextWrapping="Wrap"/>
+            </StackPanel>
+        </DockPanel>
+
+        <Border Grid.Row="1"
+                Margin="0,0,0,12"
+                Padding="14"
+                CornerRadius="8"
+                BorderBrush="#3F5DA8"
+                BorderThickness="1"
+                Background="#F3F6FF"
+                VerticalAlignment="Top"
+                Visibility="{Binding IsTestAreaSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel>
+                <TextBlock Text="新增測試區設備" FontSize="22" FontWeight="Bold" Foreground="#253E88"/>
+                <TextBlock Text="新增後輪詢服務會依 ESP32 MQTT ID 與 Modbus 從站 ID 發送讀取命令；請讓 ESP32 依既有 MQTT topic 回覆資料。"
+                           FontSize="15" Foreground="#51607A" TextWrapping="Wrap" Margin="0,4,0,12"/>
+
+                <StackPanel Orientation="Horizontal">
+                    <StackPanel Margin="0,0,12,0">
+                        <TextBlock Text="設備名稱" FontSize="14" FontWeight="SemiBold"/>
+                        <TextBox Width="160" Height="30" Text="{Binding NewTestDeviceName, UpdateSourceTrigger=PropertyChanged}"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,12,0">
+                        <TextBlock Text="ESP32 MQTT ID" FontSize="14" FontWeight="SemiBold"/>
+                        <TextBox Width="180" Height="30" Text="{Binding NewTestDeviceEsp32Id, UpdateSourceTrigger=PropertyChanged}"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,12,0">
+                        <TextBlock Text="從站 ID" FontSize="14" FontWeight="SemiBold"/>
+                        <TextBox Width="90" Height="30" Text="{Binding NewTestDeviceSlaveIdText, UpdateSourceTrigger=PropertyChanged}"/>
+                    </StackPanel>
+                    <Button Content="新增設備"
+                            Width="100"
+                            Height="32"
+                            Margin="0,18,0,0"
+                            Background="#3F5DA8"
+                            Foreground="White"
+                            FontWeight="Bold"
+                            Command="{Binding AddTestAreaDeviceCommand}"
+                            IsEnabled="{Binding CanControlDevice}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Grid.Row="2"
+                   Text="此區域尚未配置設備。"
+                   FontSize="24"
+                   FontWeight="SemiBold"
+                   Foreground="#687985"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Visibility="{Binding ShowSelectedAreaEmptyMessage, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                  Visibility="{Binding IsAreaSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <ItemsControl ItemsSource="{Binding SelectedAreaDevices}">
+                <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <UniformGrid Columns="6"/>
                 </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
+                </ItemsControl.ItemsPanel>
 
-            <ItemsControl.ItemTemplate>
+                <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <Border Margin="5" Padding="10" CornerRadius="8" BorderBrush="Gray" BorderThickness="1">
                         <Border.Style>
@@ -247,7 +398,9 @@
 
                     </Border>
                 </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
-    </ScrollViewer>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+    </Grid>
 </Page>
