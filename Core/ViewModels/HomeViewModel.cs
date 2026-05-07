@@ -391,13 +391,13 @@ namespace SANJET.Core.ViewModels
         }
 
         /// <summary>
-        /// 從測試區移除設備
+        /// 從目前設備清單和資料庫刪除指定設備。
         /// </summary>
-        public async Task<bool> RemoveTestAreaDeviceAsync(int deviceId)
+        public async Task<bool> RemoveDeviceAsync(int deviceId)
         {
             if (_dbContext.Devices == null)
             {
-                _logger.LogError("數據庫上下文中 Devices DbSet 為 null，無法移除設備。");
+                _logger.LogError("數據庫上下文中 Devices DbSet 為 null，無法刪除設備。");
                 return false;
             }
 
@@ -406,72 +406,54 @@ namespace SANJET.Core.ViewModels
                 var deviceToRemove = await _dbContext.Devices.FindAsync(deviceId);
                 if (deviceToRemove == null)
                 {
-                    _logger.LogWarning("找不到要移除的設備，ID: {DeviceId}", deviceId);
+                    _logger.LogWarning("找不到要刪除的設備，ID: {DeviceId}", deviceId);
                     return false;
                 }
 
                 _dbContext.Devices.Remove(deviceToRemove);
                 await _dbContext.SaveChangesAsync();
 
-                // 從 UI 集合中移除
-                var vmToRemove = Devices.FirstOrDefault(d => d.Id == deviceId);
-                if (vmToRemove != null)
-                {
-                    Devices.Remove(vmToRemove);
-                    TestAreaDevices.Remove(vmToRemove);
-                }
+                RemoveDeviceFromUiCollections(deviceId);
 
-                _logger.LogInformation("成功移除測試區設備，ID: {DeviceId}, 名稱: {DeviceName}",
-                                       deviceId, deviceToRemove.Name);
+                _logger.LogInformation("成功刪除設備，ID: {DeviceId}, 名稱: {DeviceName}, 區域: {Area}",
+                                       deviceId, deviceToRemove.Name, deviceToRemove.Area);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "移除測試區設備時發生錯誤，ID: {DeviceId}", deviceId);
+                _logger.LogError(ex, "刪除設備時發生錯誤，ID: {DeviceId}", deviceId);
                 return false;
             }
         }
 
         /// <summary>
-        /// 從展機區移除設備
+        /// 從測試區移除設備。保留此方法供既有呼叫端使用。
         /// </summary>
-        public async Task<bool> RemoveDisplayAreaDeviceAsync(int deviceId)
+        public Task<bool> RemoveTestAreaDeviceAsync(int deviceId)
         {
-            if (_dbContext.Devices == null)
+            return RemoveDeviceAsync(deviceId);
+        }
+
+        /// <summary>
+        /// 從展機區移除設備。保留此方法供既有呼叫端使用。
+        /// </summary>
+        public Task<bool> RemoveDisplayAreaDeviceAsync(int deviceId)
+        {
+            return RemoveDeviceAsync(deviceId);
+        }
+
+        private void RemoveDeviceFromUiCollections(int deviceId)
+        {
+            var vmToRemove = Devices.FirstOrDefault(d => d.Id == deviceId);
+            if (vmToRemove != null)
             {
-                _logger.LogError("數據庫上下文中 Devices DbSet 為 null，無法移除設備。");
-                return false;
+                Devices.Remove(vmToRemove);
+                DisplayAreaDevices.Remove(vmToRemove);
+                TestAreaDevices.Remove(vmToRemove);
+                SelectedAreaDevices.Remove(vmToRemove);
             }
 
-            try
-            {
-                var deviceToRemove = await _dbContext.Devices.FindAsync(deviceId);
-                if (deviceToRemove == null)
-                {
-                    _logger.LogWarning("找不到要移除的設備，ID: {DeviceId}", deviceId);
-                    return false;
-                }
-
-                _dbContext.Devices.Remove(deviceToRemove);
-                await _dbContext.SaveChangesAsync();
-
-                // 從 UI 集合中移除
-                var vmToRemove = Devices.FirstOrDefault(d => d.Id == deviceId);
-                if (vmToRemove != null)
-                {
-                    Devices.Remove(vmToRemove);
-                    DisplayAreaDevices.Remove(vmToRemove);
-                }
-
-                _logger.LogInformation("成功移除展機區設備，ID: {DeviceId}, 名稱: {DeviceName}",
-                                       deviceId, deviceToRemove.Name);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "移除展機區設備時發生錯誤，ID: {DeviceId}", deviceId);
-                return false;
-            }
+            OnPropertyChanged(nameof(ShowSelectedAreaEmptyMessage));
         }
 
         // 重載 1: 由 MainViewModel 的 Modbus 讀取回應處理器呼叫 (輪詢更新)
@@ -659,6 +641,33 @@ namespace SANJET.Core.ViewModels
         {
             Name = OriginalName;
             IsEditingName = false;
+        }
+
+        [RelayCommand]
+        private async Task DeleteAsync()
+        {
+            if (_homeViewModel == null)
+            {
+                MessageBox.Show("設備管理服務不可用，無法刪除設備。", "錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            var result = MessageBox.Show(
+                $"確定要刪除設備 '{Name}' 嗎？\n\nESP32 ID：{ControllingEsp32MqttId ?? "未設定"}\n從站 ID：{SlaveId}\n\n此操作會從設備清單與資料庫中移除該設備。",
+                "確認刪除設備",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            var success = await _homeViewModel.RemoveDeviceAsync(Id);
+            if (!success)
+            {
+                MessageBox.Show("刪除設備失敗，請檢查日誌取得詳細資訊。", "錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private bool CanStart()
