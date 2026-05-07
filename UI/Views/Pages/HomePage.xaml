@@ -118,7 +118,7 @@
         </Grid.RowDefinitions>
 
         <!-- 廠區平面圖：點選區域後進入該區設備列表 -->
-        <Border Grid.Row="0" Margin="0,0,0,16" Padding="18" CornerRadius="12" BorderBrush="#4F6472" BorderThickness="1" Background="#EAF1F5"
+        <Border Grid.Row="0" Margin="0,0,0,16" Padding="18" CornerRadius="12" BorderBrush="#4F6472" BorderThickness="1" Background="Transparent"
                 Visibility="{Binding IsAreaSelected, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
             <Grid>
                 <Grid.RowDefinitions>
@@ -129,18 +129,16 @@
 
                 <StackPanel Grid.Row="0" Margin="0,0,0,14">
                     <TextBlock Text="廠區平面圖" FontSize="32" FontWeight="Bold" Foreground="#17313F"/>
-                    <TextBlock Text="請點選下方區域進入設備監控。現有首頁設備已歸類於展示區，測試區可作為後續新增設備使用。"
-                               FontSize="18" Foreground="#50636F" TextWrapping="Wrap" Margin="0,6,0,0"/>
                 </StackPanel>
 
                 <Grid Grid.Row="1" MinHeight="360">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="2*"/>
-                        <ColumnDefinition Width="1.15*"/>
+                        <ColumnDefinition Width="200"/>
+                        <ColumnDefinition Width="1.5*"/>
+                        <ColumnDefinition Width="300"/>
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="1*"/>
                     </Grid.RowDefinitions>
 
                     <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="0"
@@ -150,40 +148,41 @@
                             VerticalContentAlignment="Stretch"
                             Background="#DDEFE6"
                             BorderBrush="#2E7D59"
+                            Opacity="0.67"
                             BorderThickness="3"
                             Command="{Binding SelectAreaCommand}"
-                            CommandParameter="Display">
+                            CommandParameter="Display" >
                         <Grid>
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                <TextBlock Text="展示區" FontSize="36" FontWeight="Bold" Foreground="#1F5F43" HorizontalAlignment="Center"/>
-                                <TextBlock Text="現有首頁設備" FontSize="20" Foreground="#2F6E51" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                <TextBlock Text="展機區" FontSize="36" FontWeight="Bold" Foreground="#1F5F43" HorizontalAlignment="Center"/>
                                 <TextBlock Text="點選進入" FontSize="18" Foreground="#4D7F65" HorizontalAlignment="Center" Margin="0,18,0,0"/>
                             </StackPanel>
                         </Grid>
                     </Button>
 
-                    <Button Grid.Row="0" Grid.Column="1"
-                            Margin="12,0,0,8"
+                    <Button Grid.Row="0" Grid.Column="2"
+                            Margin="100,0,0,250"
                             Padding="16"
                             HorizontalContentAlignment="Stretch"
                             VerticalContentAlignment="Stretch"
                             Background="#E7ECFA"
                             BorderBrush="#3F5DA8"
+                            Opacity="0.7"
                             BorderThickness="3"
                             Command="{Binding SelectAreaCommand}"
                             CommandParameter="Test">
                         <Grid>
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                <TextBlock Text="測試區" FontSize="32" FontWeight="Bold" Foreground="#253E88" HorizontalAlignment="Center"/>
-                                <TextBlock Text="新增區域" FontSize="18" Foreground="#5167A6" HorizontalAlignment="Center" Margin="0,8,0,0"/>
-                                <TextBlock Text="點選進入" FontSize="16" Foreground="#6174AF" HorizontalAlignment="Center" Margin="0,14,0,0"/>
+                                <TextBlock Text="測試區" FontSize="36" FontWeight="Bold" Foreground="#253E88" HorizontalAlignment="Center"/>
+                                <TextBlock Text="新增區域" FontSize="20" Foreground="#5167A6" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                <TextBlock Text="點選進入" FontSize="18" Foreground="#6174AF" HorizontalAlignment="Center" Margin="0,14,0,0"/>
                             </StackPanel>
                         </Grid>
                     </Button>
 
-                    <Border Grid.Row="1" Grid.Column="1" Margin="12,8,0,0" CornerRadius="8" Background="#FFF7E7" BorderBrush="#D6A64D" BorderThickness="2">
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <TextBlock Text="共用走道 / 緩衝區" FontSize="24" FontWeight="SemiBold" Foreground="#7A5A16" HorizontalAlignment="Center"/>
+                    <Border Grid.Row="1" Grid.Column="1" Margin="70,0,0,0" CornerRadius="8" Background="#FFF7E7" BorderBrush="#D6A64D" BorderThickness="2" Opacity="0.7">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" >
+                            <TextBlock Text="DVC工作區" FontSize="24" FontWeight="SemiBold" Foreground="#7A5A16" HorizontalAlignment="Center"/>
                             <TextBlock Text="保留廠區動線標示" FontSize="16" Foreground="#8C6E2E" HorizontalAlignment="Center" Margin="0,8,0,0"/>
                         </StackPanel>
                     </Border>
@@ -206,7 +205,7 @@
                     Foreground="White"
                     FontWeight="Bold"/>
             <StackPanel>
-                <TextBlock Text="{Binding SelectedAreaName}" FontSize="30" FontWeight="Bold" Foreground="#17313F"/>
+                <TextBlock Text="{Binding SelectedAreaName}" FontSize="24" FontWeight="Bold" Foreground="#17313F"/>
                 <TextBlock Text="{Binding SelectedAreaDescription}" FontSize="17" Foreground="#50636F" TextWrapping="Wrap"/>
             </StackPanel>
         </DockPanel>

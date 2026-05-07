@@ -120,8 +120,8 @@ namespace SANJET.Core.ViewModels
             }
             else
             {
-                SelectedAreaName = "展示區";
-                SelectedAreaDescription = "展示區包含原首頁中的所有設備，可在此查看狀態、啟停設備與開啟紀錄。";
+                SelectedAreaName = "展機區";
+                SelectedAreaDescription = "可在此查看狀態、啟停設備與紀錄。";
                 SelectedAreaDevices = DisplayAreaDevices;
             }
 
