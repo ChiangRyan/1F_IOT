@@ -19,6 +19,9 @@ namespace SANJET.Core.ViewModels
 {
     public partial class HomeViewModel : ObservableObject
     {
+        private const string DisplayAreaName = "展機區";
+        private const string TestAreaName = "測試區";
+
         private readonly AppDbContext _dbContext;
         private readonly ILogger<HomeViewModel> _logger;
         private readonly MainViewModel? _mainViewModel;
@@ -98,14 +101,43 @@ namespace SANJET.Core.ViewModels
                                        deviceVm.Name, deviceVm.Id, deviceVm.SlaveId);
                 }
                 Devices.Add(deviceVm);
-                DisplayAreaDevices.Add(deviceVm);
+
+                if (IsTestArea(deviceEntity.Area))
+                {
+                    TestAreaDevices.Add(deviceVm);
+                }
+                else
+                {
+                    DisplayAreaDevices.Add(deviceVm);
+                }
             }
 
-            if (IsAreaSelected && SelectedAreaName == "展示區")
+            RefreshSelectedAreaDevices();
+        }
+
+        private static bool IsTestArea(string? area)
+        {
+            return string.Equals(area, TestAreaName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsDisplayArea(string? area)
+        {
+            return string.IsNullOrWhiteSpace(area) ||
+                   string.Equals(area, DisplayAreaName, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(area, "展示區", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void RefreshSelectedAreaDevices()
+        {
+            if (!IsAreaSelected)
             {
-                SelectedAreaDevices = DisplayAreaDevices;
-                OnPropertyChanged(nameof(ShowSelectedAreaEmptyMessage));
+                return;
             }
+
+            SelectedAreaDevices = IsTestArea(SelectedAreaName)
+                ? TestAreaDevices
+                : DisplayAreaDevices;
+            OnPropertyChanged(nameof(ShowSelectedAreaEmptyMessage));
         }
 
         [RelayCommand]
@@ -115,13 +147,13 @@ namespace SANJET.Core.ViewModels
 
             if (string.Equals(areaKey, "Test", StringComparison.OrdinalIgnoreCase))
             {
-                SelectedAreaName = "測試區";
+                SelectedAreaName = TestAreaName;
                 SelectedAreaDescription = "測試區用於新增和測試設備。可透過 RS485 連接多達 5 個 Modbus 從站。";
                 SelectedAreaDevices = TestAreaDevices;
             }
             else
             {
-                SelectedAreaName = "展機區";
+                SelectedAreaName = DisplayAreaName;
                 SelectedAreaDescription = "可在此查看狀態、啟停設備與紀錄。";
                 SelectedAreaDevices = DisplayAreaDevices;
             }
@@ -271,7 +303,8 @@ namespace SANJET.Core.ViewModels
                     Status = "閒置",
                     IsOperational = true,
                     RunCount = 0,
-                    Timestamp = DateTime.UtcNow
+                    Timestamp = DateTime.UtcNow,
+                    Area = TestAreaName
                 };
 
                 _dbContext.Devices.Add(newDevice);
@@ -335,7 +368,8 @@ namespace SANJET.Core.ViewModels
                     Status = "閒置",
                     IsOperational = true,
                     RunCount = 0,
-                    Timestamp = DateTime.UtcNow
+                    Timestamp = DateTime.UtcNow,
+                    Area = DisplayAreaName
                 };
 
                 _dbContext.Devices.Add(newDevice);
