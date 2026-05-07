@@ -351,17 +351,7 @@
                             <Button Content="紀錄" Command="{Binding RecordCommand}" CommandParameter="{Binding SlaveId}" Style="{StaticResource RecordButtonStyle}" 
                                     Margin="0,10,0,0" HorizontalAlignment="Center"/>
 
-                            <!-- 刪除設備按鈕 -->
-                            <Button Content="刪除設備"
-                                    Command="{Binding DeleteCommand}"
-                                    Style="{StaticResource DeleteButtonStyle}"
-                                    Margin="0,10,0,0"
-                                    HorizontalAlignment="Center"
-                                    Visibility="{
-                                        Binding DataContext.CanControlDevice,
-                                        RelativeSource={RelativeSource AncestorType=Page},
-                                        Converter={StaticResource BooleanToVisibilityConverter}}"/>
-
+ 
                             <!-- 編輯模式：輸入新的運轉次數 -->
                             <StackPanel Orientation="Horizontal" Margin="0,10,0,5"
                                 Visibility="{Binding IsEditingRunCount, Converter={StaticResource BooleanToVisibilityConverter}}"
@@ -391,7 +381,18 @@
                                     HorizontalAlignment="Center"
                                     Visibility="{Binding IsEditingRunCount, Converter={StaticResource BooleanInverterConverter}}"
                                     IsEnabled="{Binding DataContext.CanControlDevice, RelativeSource={RelativeSource AncestorType=Page}}"/>
-                        </StackPanel>
+
+                                <!-- 刪除設備按鈕 -->
+                                <Button Content="刪除設備"
+                                         Command="{Binding DeleteCommand}"
+                                         Style="{StaticResource DeleteButtonStyle}"
+                                         Margin="0,10,0,0"
+                                         HorizontalAlignment="Center"
+                                         Visibility="{
+                                         Binding DataContext.CanControlDevice,
+                                         RelativeSource={RelativeSource AncestorType=Page},
+                                         Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                            </StackPanel>
 
                     </Border>
                 </DataTemplate>
