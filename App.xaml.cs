@@ -163,11 +163,12 @@ namespace SANJET
                     // 給用戶看到初始化完成的反饋
                     await Task.Delay(300);
 
+                    // LoadingWindow 的流程已完成；先關閉 LoadingWindow，再顯示 MainWindow，
+                    // 讓主視窗不會在載入視窗仍存在時提早出現。
+                    loadingWindow.Close();
+
                     mainWindow.Show();
                     Application.Current.ShutdownMode = ShutdownMode.OnMainWindowClose;
-
-                    // MainWindow 已顯示後再關閉 LoadingWindow，避免觸發啟動期間自動關閉。
-                    loadingWindow.Close();
 
                 }
                 else
