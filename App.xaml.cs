@@ -83,7 +83,8 @@ namespace SANJET
                         services.AddDbContext<AppDbContext>(options => options.UseSqlite(connectionString), ServiceLifetime.Transient);
 
                         services.AddSingleton<MainViewModel>();
-                        services.AddTransient<HomeViewModel>();
+                        // HomePage 綁定的 HomeViewModel 必須與 MQTT 回應處理器更新的實例相同。
+                        services.AddSingleton<HomeViewModel>();
                         services.AddTransient<SettingsPageViewModel>();
                         services.AddTransient<LoginViewModel>();
                         services.AddTransient<LoginWindow>();
