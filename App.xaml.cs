@@ -1,4 +1,4 @@
-﻿// 檔案路徑: App.xaml.cs
+// 檔案路徑: App.xaml.cs
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -155,13 +155,14 @@ namespace SANJET
                 {
                     appLogger.LogInformation("Database initialized successfully. Initializing main application.");
 
+                    loadingViewModel.StatusText = "初始化完成，準備進入主畫面...";
+
+                    // 所有初始化都完成後才啟動 LoadingWindow 動畫；動畫播放完畢後再進入主視窗。
+                    await loadingWindow.PlayCompletionAnimationAsync();
+
                     // 顯示主視窗。登入邏輯將由 MainWindow 的 Loaded 事件觸發。
-                    loadingViewModel.StatusText = "初始化完成，正在加載主視窗...";
                     var mainWindow = Host.Services.GetRequiredService<MainWindow>();
                     Application.Current.MainWindow = mainWindow; // 明確設定應用程式的主視窗
-
-                    // 給用戶看到初始化完成的反饋
-                    await Task.Delay(300);
 
                     // LoadingWindow 的流程已完成；先關閉 LoadingWindow，再顯示 MainWindow，
                     // 讓主視窗不會在載入視窗仍存在時提早出現。
