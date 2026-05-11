@@ -194,6 +194,7 @@ namespace SANJET.UI.Views.Windows
 
                 var rtspUrl = _viewModel.BuildRtspUrl1();
 
+                ResetPlayerBeforeStart(_mediaPlayer1, ref _media1);
                 _mediaPlayer1.Stop();
                 Thread.Sleep(100);
 
@@ -204,7 +205,9 @@ namespace SANJET.UI.Views.Windows
                 _media1.AddOption(":rtsp-tcp");
                 _media1.AddOption(":network-caching=300");
 
-                _mediaPlayer1.Play(_media1);
+                RtspVideoView1.MediaPlayer = _mediaPlayer1;
+                if (!_mediaPlayer1.Play(_media1))
+                    throw new InvalidOperationException("攝像頭 1 播放器啟動失敗。");
 
                 _stream1Connected = true;
 
@@ -244,6 +247,7 @@ namespace SANJET.UI.Views.Windows
 
                 var rtspUrl = _viewModel.BuildRtspUrl2();
 
+                ResetPlayerBeforeStart(_mediaPlayer2, ref _media2);
                 _mediaPlayer2.Stop();
                 Thread.Sleep(100);
 
@@ -254,7 +258,9 @@ namespace SANJET.UI.Views.Windows
                 _media2.AddOption(":rtsp-tcp");
                 _media2.AddOption(":network-caching=300");
 
-                _mediaPlayer2.Play(_media2);
+                RtspVideoView2.MediaPlayer = _mediaPlayer2;
+                if (!_mediaPlayer2.Play(_media2))
+                    throw new InvalidOperationException("攝像頭 2 播放器啟動失敗。");
 
                 _stream2Connected = true;
 
@@ -271,6 +277,21 @@ namespace SANJET.UI.Views.Windows
 
                 UpdateControlButtons();
             }
+        }
+
+
+        private static void ResetPlayerBeforeStart(LibVLCSharp.Shared.MediaPlayer mediaPlayer, ref Media? media)
+        {
+            // 不要對剛建立、尚未綁定媒體的播放器呼叫 Stop()；部分 LibVLC/WPF 組合
+            // 會讓接下來的第一次 Play() 進入異常狀態，造成 UI 顯示已連接但畫面不出現。
+            if (media != null || mediaPlayer.IsPlaying)
+            {
+                mediaPlayer.Stop();
+                Thread.Sleep(100);
+            }
+
+            media?.Dispose();
+            media = null;
         }
 
         private void StopStream1(bool updateUi = true)
