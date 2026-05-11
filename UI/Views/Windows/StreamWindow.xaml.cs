@@ -4,6 +4,7 @@ using SANJET.Core.Services;
 using SANJET.Core.ViewModels;
 using System;
 using System.ComponentModel;
+using System.Net.Sockets;
 using System.Runtime.Versioning;
 using System.Threading;
 using System.Threading.Tasks;
@@ -24,6 +25,7 @@ namespace SANJET.UI.Views.Windows
         private ILibVLCInitializationService? _libVLCService;
         private int _currentScreen = 1;
         private const int RtspConnectionTimeoutSeconds = 8;
+        private const int RtspEndpointCheckTimeoutSeconds = 2;
         private bool _stream1Connected = false;
         private bool _stream2Connected = false;
         private bool _stream1Connecting = false;
@@ -203,12 +205,14 @@ namespace SANJET.UI.Views.Windows
                 _stream1Connecting = true;
                 var connectionCts = ResetConnectionToken(ref _stream1ConnectionCts);
 
-                StreamStatusText.Text = "攝像頭 1 - 連接中...";
+                StreamStatusText.Text = "攝像頭 1 - 檢查連線...";
                 StreamStatusText.Foreground = Brushes.White;
                 StatusDot.Fill = Brushes.Orange;
                 UpdateControlButtons();
 
                 var rtspUrl = _viewModel.BuildRtspUrl1();
+                await EnsureRtspEndpointReachableAsync(rtspUrl, 1, connectionCts.Token);
+                StreamStatusText.Text = "攝像頭 1 - 連接中...";
 
                 ResetPlayerBeforeStart(_mediaPlayer1, ref _media1);
                 _mediaPlayer1.Stop();
@@ -277,12 +281,14 @@ namespace SANJET.UI.Views.Windows
                 _stream2Connecting = true;
                 var connectionCts = ResetConnectionToken(ref _stream2ConnectionCts);
 
-                StreamStatusText.Text = "攝像頭 2 - 連接中...";
+                StreamStatusText.Text = "攝像頭 2 - 檢查連線...";
                 StreamStatusText.Foreground = Brushes.White;
                 StatusDot.Fill = Brushes.Orange;
                 UpdateControlButtons();
 
                 var rtspUrl = _viewModel.BuildRtspUrl2();
+                await EnsureRtspEndpointReachableAsync(rtspUrl, 2, connectionCts.Token);
+                StreamStatusText.Text = "攝像頭 2 - 連接中...";
 
                 ResetPlayerBeforeStart(_mediaPlayer2, ref _media2);
 
@@ -335,6 +341,32 @@ namespace SANJET.UI.Views.Windows
             connectionCts?.Dispose();
             connectionCts = new CancellationTokenSource();
             return connectionCts;
+        }
+
+
+        private static async Task EnsureRtspEndpointReachableAsync(string rtspUrl, int cameraNumber, CancellationToken cancellationToken)
+        {
+            if (!Uri.TryCreate(rtspUrl, UriKind.Absolute, out var uri) || !string.Equals(uri.Scheme, Uri.UriSchemeRtsp, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"攝像頭 {cameraNumber} RTSP 位址格式錯誤，請重新檢查設定。");
+            }
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(RtspEndpointCheckTimeoutSeconds));
+
+            try
+            {
+                using var tcpClient = new TcpClient();
+                await tcpClient.ConnectAsync(uri.Host, uri.Port, timeoutCts.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new TimeoutException($"攝像頭 {cameraNumber} 無法連線到 {uri.Host}:{uri.Port}，請確認攝影機已安裝、已上線，且 RTSP IP/連接埠正確。");
+            }
+            catch (SocketException ex)
+            {
+                throw new InvalidOperationException($"攝像頭 {cameraNumber} 無法連線到 {uri.Host}:{uri.Port}，請確認攝影機已安裝、已上線，且 RTSP IP/連接埠正確。", ex);
+            }
         }
 
         private async Task WaitForPlaybackStartedAsync(LibVLCSharp.Shared.MediaPlayer mediaPlayer, int cameraNumber, CancellationToken cancellationToken)
