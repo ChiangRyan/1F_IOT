@@ -1,11 +1,10 @@
-using LibVLCSharp.Shared;
+﻿using LibVLCSharp.Shared;
 using Microsoft.Extensions.DependencyInjection;
 using SANJET.Core.Services;
 using SANJET.Core.ViewModels;
 using System;
 using System.ComponentModel;
 using System.Net.Sockets;
-using System.Runtime.Versioning;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -13,7 +12,6 @@ using System.Windows.Media;
 
 namespace SANJET.UI.Views.Windows
 {
-    [SupportedOSPlatform("windows7.0")]
     public partial class StreamWindow : Window
     {
         private LibVLC? _libVLC;
@@ -346,7 +344,7 @@ namespace SANJET.UI.Views.Windows
 
         private static async Task EnsureRtspEndpointReachableAsync(string rtspUrl, int cameraNumber, CancellationToken cancellationToken)
         {
-            if (!Uri.TryCreate(rtspUrl, UriKind.Absolute, out var uri) || !string.Equals(uri.Scheme, Uri.UriSchemeRtsp, StringComparison.OrdinalIgnoreCase))
+            if (!Uri.TryCreate(rtspUrl, UriKind.Absolute, out var uri) || !string.Equals(uri.Scheme, "rtsp", StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException($"攝像頭 {cameraNumber} RTSP 位址格式錯誤，請重新檢查設定。");
             }
