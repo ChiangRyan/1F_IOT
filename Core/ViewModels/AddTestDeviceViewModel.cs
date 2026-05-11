@@ -19,7 +19,10 @@ namespace SANJET.Core.ViewModels
         private string esp32MqttId = "ESP32_TEST_RS485";
 
         [ObservableProperty]
-        private int slaveId = 100;
+        private int slaveId = 1;
+
+        [ObservableProperty]
+        private int modbusDeviceIndex = 1;
 
         [ObservableProperty]
         private string statusMessage = string.Empty;
@@ -51,20 +54,27 @@ namespace SANJET.Core.ViewModels
             if (SlaveId < 1 || SlaveId > 247)
             {
                 StatusMessage = "Slave ID 必須在 1-247 之間";
-                MessageBox.Show("Slave ID 必須在 1-247 之間\n\n建議測試區使用 100-247 範圍", "驗證錯誤", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("Slave ID 必須在 1-247 之間", "驗證錯誤", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (ModbusDeviceIndex < 1 || ModbusDeviceIndex > 4)
+            {
+                StatusMessage = "測試區設備編號必須在 1-4 之間";
+                MessageBox.Show("測試區第一站支援設備編號 1-4，分別對應控制 0-3、狀態 10-13、次數 20 開始。", "驗證錯誤", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             try
             {
                 StatusMessage = "正在添加設備...";
-                bool success = await _homeViewModel.AddTestAreaDeviceAsync(DeviceName, Esp32MqttId, (byte)SlaveId);
+                bool success = await _homeViewModel.AddTestAreaDeviceAsync(DeviceName, Esp32MqttId, (byte)SlaveId, ModbusDeviceIndex);
 
                 if (success)
                 {
                     StatusMessage = $"成功添加設備：{DeviceName}";
-                    _logger.LogInformation("成功通過對話框添加測試區設備：{DeviceName} (ESP32: {Esp32Id}, Slave: {SlaveId})",
-                                         DeviceName, Esp32MqttId, SlaveId);
+                    _logger.LogInformation("成功通過對話框添加測試區設備：{DeviceName} (ESP32: {Esp32Id}, Slave: {SlaveId}, 設備編號: {ModbusDeviceIndex})",
+                                         DeviceName, Esp32MqttId, SlaveId, ModbusDeviceIndex);
 
                     // 關閉對話框
                     Application.Current.Windows.OfType<Window>()

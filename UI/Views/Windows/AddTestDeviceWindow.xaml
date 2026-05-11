@@ -6,13 +6,14 @@
         mc:Ignorable="d"
         Title="添加測試區設備"
         Width="480"
-        Height="650"
+        Height="720"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanMinimize"
         Background="#F5F5F5">
 
     <Grid Margin="20">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -85,14 +86,31 @@
                          Height="35"
                          VerticalContentAlignment="Center"/>
             </Border>
-            <TextBlock Text="Modbus 標準支援 1-247 任意 Slave ID。建議測試區使用 100-247 避免衝突。無數量限制。"
+            <TextBlock Text="Modbus 標準支援 1-247 任意 Slave ID。若第一站有 4 台邏輯設備，可使用相同 Slave ID 搭配下方設備編號。"
+                       FontSize="11"
+                       Foreground="#999999"
+                       Margin="0,5,0,0"/>
+        </StackPanel>
+
+        <!-- 測試區邏輯設備編號 -->
+        <StackPanel Grid.Row="5" Orientation="Vertical" Margin="0,0,0,12">
+            <TextBlock Text="測試區設備編號 (1-4)" FontSize="14" FontWeight="SemiBold" Foreground="#333333" Margin="0,0,0,5"/>
+            <Border BorderBrush="#CCCCCC" BorderThickness="1" CornerRadius="4">
+                <TextBox Text="{Binding ModbusDeviceIndex, UpdateSourceTrigger=PropertyChanged}"
+                         FontSize="12"
+                         Padding="10"
+                         Background="White"
+                         Height="35"
+                         VerticalContentAlignment="Center"/>
+            </Border>
+            <TextBlock Text="同一個 Slave ID 內：設備1~4 控制=0~3、狀態=10~13、次數從20開始。"
                        FontSize="11"
                        Foreground="#999999"
                        Margin="0,5,0,0"/>
         </StackPanel>
 
         <!-- Modbus RS485 配置提示 -->
-        <Border Grid.Row="5"
+        <Border Grid.Row="6"
                 Background="#E8F4F8"
                 BorderBrush="#0099CC"
                 BorderThickness="1"
@@ -103,12 +121,12 @@
                 <TextBlock Text="RS485 配置信息" FontSize="12" FontWeight="Bold" Foreground="#0066AA" Margin="0,0,0,8"/>
                 <TextBlock Text="• 通訊方式：Modbus RTU 或 TCP" FontSize="11" Foreground="#333333" TextWrapping="Wrap" Margin="0,0,0,4"/>
                 <TextBlock Text="• 每個 ESP32 支持最多 247 個 Modbus 從站（無數量限制）" FontSize="11" Foreground="#333333" TextWrapping="Wrap" Margin="0,0,0,4"/>
-                <TextBlock Text="• Slave ID 範圍：1-247（建議展示區 1-50，測試區 100-247）" FontSize="11" Foreground="#333333" TextWrapping="Wrap"/>
+                <TextBlock Text="• 測試區第一站範例：設備1~4 的控制 0~3、狀態 10~13、次數 20 起算" FontSize="11" Foreground="#333333" TextWrapping="Wrap"/>
             </StackPanel>
         </Border>
 
         <!-- 狀態信息 -->
-        <TextBlock Grid.Row="6"
+        <TextBlock Grid.Row="7"
                    Text="{Binding StatusMessage}"
                    FontSize="12"
                    Foreground="#E74C3C"
@@ -117,7 +135,7 @@
                    MinHeight="20"/>
 
         <!-- 按鈕 -->
-        <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+        <StackPanel Grid.Row="9" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
             <Button Content="添加"
                     Command="{Binding AddDeviceCommand}"
                     Width="100"
