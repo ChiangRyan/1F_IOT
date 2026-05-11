@@ -211,11 +211,6 @@ namespace SANJET.UI.Views.Windows
                 var rtspUrl = _viewModel.BuildRtspUrl1();
 
                 ResetPlayerBeforeStart(_mediaPlayer1, ref _media1);
-                _mediaPlayer1.Stop();
-                Thread.Sleep(100);
-
-                _media1?.Dispose();
-                _media1 = null;
 
                 _media1 = new Media(_libVLC, new Uri(rtspUrl));
                 _media1.AddOption(":rtsp-tcp");
@@ -288,11 +283,6 @@ namespace SANJET.UI.Views.Windows
                 var rtspUrl = _viewModel.BuildRtspUrl2();
 
                 ResetPlayerBeforeStart(_mediaPlayer2, ref _media2);
-                _mediaPlayer2.Stop();
-                Thread.Sleep(100);
-
-                _media2?.Dispose();
-                _media2 = null;
 
                 _media2 = new Media(_libVLC, new Uri(rtspUrl));
                 _media2.AddOption(":rtsp-tcp");
@@ -360,18 +350,18 @@ namespace SANJET.UI.Views.Windows
             mediaPlayer.EncounteredError += EncounteredErrorHandler;
             mediaPlayer.Stopped += StoppedHandler;
 
-            using var cancellationRegistration = cancellationToken.Register(() => playbackStarted.TrySetCanceled(cancellationToken));
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(RtspConnectionTimeoutSeconds));
+            using var cancellationRegistration = timeoutCts.Token.Register(() => playbackStarted.TrySetCanceled(timeoutCts.Token));
 
             try
             {
-                var completedTask = await Task.WhenAny(
-                    playbackStarted.Task,
-                    Task.Delay(TimeSpan.FromSeconds(RtspConnectionTimeoutSeconds)));
-
-                if (completedTask != playbackStarted.Task)
-                    throw new TimeoutException($"攝像頭 {cameraNumber} 連線逾時（{RtspConnectionTimeoutSeconds} 秒），請確認攝影機已上線並可存取 RTSP。");
-
                 await playbackStarted.Task;
+                await WaitForVisibleVideoAsync(mediaPlayer, cameraNumber, timeoutCts.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new TimeoutException($"攝像頭 {cameraNumber} 連線逾時（{RtspConnectionTimeoutSeconds} 秒），請確認攝影機已上線並可存取 RTSP。若畫面仍為黑色，請檢查攝影機是否真的輸出影像。");
             }
             finally
             {
@@ -379,6 +369,34 @@ namespace SANJET.UI.Views.Windows
                 mediaPlayer.EncounteredError -= EncounteredErrorHandler;
                 mediaPlayer.Stopped -= StoppedHandler;
             }
+        }
+
+        private static async Task WaitForVisibleVideoAsync(LibVLCSharp.Shared.MediaPlayer mediaPlayer, int cameraNumber, CancellationToken cancellationToken)
+        {
+            var voutCountProperty = mediaPlayer.GetType().GetProperty("VoutCount");
+
+            if (voutCountProperty == null)
+            {
+                await Task.Delay(750, cancellationToken);
+                if (!mediaPlayer.IsPlaying)
+                    throw new InvalidOperationException($"攝像頭 {cameraNumber} RTSP 串流未保持播放狀態。");
+
+                return;
+            }
+
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                if (!mediaPlayer.IsPlaying)
+                    throw new InvalidOperationException($"攝像頭 {cameraNumber} RTSP 串流未保持播放狀態。");
+
+                var voutCountValue = voutCountProperty.GetValue(mediaPlayer);
+                if (voutCountValue != null && Convert.ToUInt32(voutCountValue) > 0)
+                    return;
+
+                await Task.Delay(100, cancellationToken);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
         }
 
         private static void ResetPlayerBeforeStart(LibVLCSharp.Shared.MediaPlayer mediaPlayer, ref Media? media)
