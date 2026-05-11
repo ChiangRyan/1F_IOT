@@ -43,6 +43,7 @@ namespace SANJET.Core.ViewModels
         public byte SlaveId { get; set; }
         public string? Status { get; set; }
         public string? Message { get; set; }
+        public ushort? Address { get; set; }
     }
     public class ModbusReadResponsePayload
     {
@@ -223,7 +224,8 @@ namespace SANJET.Core.ViewModels
                                     responseData.DeviceId,
                                     responseData.SlaveId,
                                     responseData.Status ?? "未知狀態",
-                                    responseData.Message
+                                    responseData.Message,
+                                    responseData.Address
                                 );
                             }
                             else
@@ -252,9 +254,16 @@ namespace SANJET.Core.ViewModels
                             var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                             _logger.LogDebug("已獲取 DbContext。DeviceId: {DeviceId}, SlaveId: {SlaveId}", responseData.DeviceId, responseData.SlaveId);
 
-                            var deviceInDb = await dbContext.Devices.FirstOrDefaultAsync(d =>
-                                d.ControllingEsp32MqttId == responseData.DeviceId &&
-                                d.SlaveId == responseData.SlaveId);
+                            var devicesInDb = await dbContext.Devices
+                                .Where(d => d.ControllingEsp32MqttId == responseData.DeviceId &&
+                                            d.SlaveId == responseData.SlaveId)
+                                .ToListAsync();
+                            var deviceInDb = devicesInDb.FirstOrDefault(d =>
+                            {
+                                var map = ModbusAddressMapping.GetMap(d.Area, d.ModbusDeviceIndex);
+                                return responseData.Address == map.StatusAddress ||
+                                       responseData.Address == map.RunCountAddress;
+                            }) ?? devicesInDb.FirstOrDefault();
 
                             if (deviceInDb == null)
                             {
@@ -269,7 +278,8 @@ namespace SANJET.Core.ViewModels
 
                                 if (responseData.Status?.ToLower() == "success" && responseData.Data != null)
                                 {
-                                    if (responseData.Address == ModbusConstants.StatusRelativeAddress && responseData.Quantity == 1 && responseData.Data.Length >= 1)
+                                    var addressMap = ModbusAddressMapping.GetMap(deviceInDb.Area, deviceInDb.ModbusDeviceIndex);
+                                    if (responseData.Address == addressMap.StatusAddress && responseData.Quantity == 1 && responseData.Data.Length >= 1)
                                     {
                                         ushort rawStatus = responseData.Data[0];
                                         string newDeviceStatus = ConvertRawModbusStatusToString(rawStatus);
@@ -281,7 +291,7 @@ namespace SANJET.Core.ViewModels
                                             dbChanged = true;
                                         }
                                     }
-                                    else if (responseData.Address == ModbusConstants.RunCountRelativeAddress && responseData.Quantity == 2 && responseData.Data.Length >= 2)
+                                    else if (responseData.Address == addressMap.RunCountAddress && responseData.Quantity == addressMap.RunCountRegisterQuantity && responseData.Data.Length >= addressMap.RunCountRegisterQuantity)
                                     {
                                         ushort word0 = responseData.Data[0];
                                         ushort word1 = responseData.Data[1];
@@ -344,7 +354,8 @@ namespace SANJET.Core.ViewModels
                                         responseData.SlaveId,
                                         statusForUi,
                                         runCountForUi,
-                                        contextMessageForUi
+                                        contextMessageForUi,
+                                        responseData.Address
                                     );
                                 }
                                 else
@@ -471,7 +482,7 @@ namespace SANJET.Core.ViewModels
             }
         }
 
-        public async Task<bool> SendModbusWriteRunCountCommandAsync(string? targetEsp32MqttId, byte slaveId, int runCountValue)
+        public async Task<bool> SendModbusWriteRunCountCommandAsync(string? targetEsp32MqttId, byte slaveId, int runCountValue, ushort? runCountAddress = null)
         {
             if (string.IsNullOrEmpty(targetEsp32MqttId))
             {
@@ -494,7 +505,7 @@ namespace SANJET.Core.ViewModels
             var modbusWriteRunCountPayload = new
             {
                 slaveId = slaveId,
-                address = ModbusConstants.RunCountRelativeAddress,
+                address = runCountAddress ?? ModbusConstants.RunCountRelativeAddress,
                 quantity = 2,
                 values = new[] { word0, word1 }
             };

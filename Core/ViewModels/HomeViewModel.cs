@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SANJET.Core.Interfaces;
 using SANJET.Core.Models;
+using SANJET.Core.Constants;
 using SANJET.Core.Services;
 using SANJET.UI.Views.Windows;
 using System;
@@ -92,7 +93,9 @@ namespace SANJET.Core.ViewModels
                     IsOperational = deviceEntity.IsOperational,
                     RunCount = deviceEntity.RunCount,
                     IsEditingName = false,
-                    ControllingEsp32MqttId = deviceEntity.ControllingEsp32MqttId
+                    ControllingEsp32MqttId = deviceEntity.ControllingEsp32MqttId,
+                    Area = deviceEntity.Area,
+                    ModbusDeviceIndex = deviceEntity.ModbusDeviceIndex
                 };
 
                 if (string.IsNullOrEmpty(deviceVm.ControllingEsp32MqttId))
@@ -267,12 +270,18 @@ namespace SANJET.Core.ViewModels
         /// <param name="esp32MqttId">ESP32 的 MQTT ID (例如: ESP32_TEST_RS485)</param>
         /// <param name="slaveId">Modbus Slave ID (1-247, 測試區建議使用 100-110 避免衝突)</param>
         /// <returns>成功則回傳 true</returns>
-        public async Task<bool> AddTestAreaDeviceAsync(string deviceName, string esp32MqttId, byte slaveId)
+        public async Task<bool> AddTestAreaDeviceAsync(string deviceName, string esp32MqttId, byte slaveId, int modbusDeviceIndex)
         {
             if (string.IsNullOrWhiteSpace(deviceName) || string.IsNullOrWhiteSpace(esp32MqttId) || slaveId == 0)
             {
                 _logger.LogWarning("添加測試區設備失敗：無效的參數。設備名稱: {Name}, ESP32 ID: {Esp32Id}, Slave ID: {SlaveId}",
                                    deviceName, esp32MqttId, slaveId);
+                return false;
+            }
+
+            if (modbusDeviceIndex < ModbusAddressMapping.DefaultDeviceIndex || modbusDeviceIndex > ModbusAddressMapping.MaxTestAreaDeviceIndex)
+            {
+                _logger.LogWarning("添加測試區設備失敗：設備編號 {ModbusDeviceIndex} 超出 1-4 範圍。", modbusDeviceIndex);
                 return false;
             }
 
@@ -286,11 +295,14 @@ namespace SANJET.Core.ViewModels
             {
                 // 檢查是否已有相同的 ESP32 + Slave ID 組合
                 var existingDevice = await _dbContext.Devices
-                    .FirstOrDefaultAsync(d => d.ControllingEsp32MqttId == esp32MqttId && d.SlaveId == slaveId);
+                    .FirstOrDefaultAsync(d => d.ControllingEsp32MqttId == esp32MqttId &&
+                                              d.SlaveId == slaveId &&
+                                              d.Area == TestAreaName &&
+                                              d.ModbusDeviceIndex == modbusDeviceIndex);
 
                 if (existingDevice != null)
                 {
-                    _logger.LogWarning("已存在相同的設備組合。ESP32: {Esp32Id}, Slave ID: {SlaveId}", esp32MqttId, slaveId);
+                    _logger.LogWarning("已存在相同的測試區設備組合。ESP32: {Esp32Id}, Slave ID: {SlaveId}, 設備編號: {ModbusDeviceIndex}", esp32MqttId, slaveId, modbusDeviceIndex);
                     return false;
                 }
 
@@ -304,7 +316,8 @@ namespace SANJET.Core.ViewModels
                     IsOperational = true,
                     RunCount = 0,
                     Timestamp = DateTime.UtcNow,
-                    Area = TestAreaName
+                    Area = TestAreaName,
+                    ModbusDeviceIndex = modbusDeviceIndex
                 };
 
                 _dbContext.Devices.Add(newDevice);
@@ -313,8 +326,8 @@ namespace SANJET.Core.ViewModels
                 // 重新載入設備列表以反映新增的設備
                 await LoadDevicesAsync();
 
-                _logger.LogInformation("成功添加測試區設備：名稱 {Name}, ESP32: {Esp32Id}, Slave ID: {SlaveId}",
-                                       deviceName, esp32MqttId, slaveId);
+                _logger.LogInformation("成功添加測試區設備：名稱 {Name}, ESP32: {Esp32Id}, Slave ID: {SlaveId}, 設備編號: {ModbusDeviceIndex}",
+                                       deviceName, esp32MqttId, slaveId, modbusDeviceIndex);
                 return true;
             }
             catch (Exception ex)
@@ -369,7 +382,8 @@ namespace SANJET.Core.ViewModels
                     IsOperational = true,
                     RunCount = 0,
                     Timestamp = DateTime.UtcNow,
-                    Area = DisplayAreaName
+                    Area = DisplayAreaName,
+                    ModbusDeviceIndex = ModbusAddressMapping.DefaultDeviceIndex
                 };
 
                 _dbContext.Devices.Add(newDevice);
@@ -457,11 +471,9 @@ namespace SANJET.Core.ViewModels
         }
 
         // 重載 1: 由 MainViewModel 的 Modbus 讀取回應處理器呼叫 (輪詢更新)
-        public void UpdateDeviceStatusFromMqtt(string esp32MqttIdFromResponse, byte slaveIdFromResponse, string newStatusTextFromDb, int newRunCountFromDb, string? contextMessage)
+        public void UpdateDeviceStatusFromMqtt(string esp32MqttIdFromResponse, byte slaveIdFromResponse, string newStatusTextFromDb, int newRunCountFromDb, string? contextMessage, ushort? responseAddress = null)
         {
-            var deviceToUpdate = Devices.FirstOrDefault(d =>
-                d.ControllingEsp32MqttId == esp32MqttIdFromResponse &&
-                d.SlaveId == slaveIdFromResponse);
+            var deviceToUpdate = FindDeviceByModbusResponse(esp32MqttIdFromResponse, slaveIdFromResponse, responseAddress);
 
             if (deviceToUpdate != null)
             {
@@ -500,11 +512,9 @@ namespace SANJET.Core.ViewModels
         }
 
         // 重載 2: 由 MainViewModel 的 Modbus 寫入回應處理器呼叫 (命令回饋)
-        public void UpdateDeviceStatusFromMqtt(string esp32MqttIdFromResponse, byte slaveIdFromResponse, string responseStatus, string? responseMessage)
+        public void UpdateDeviceStatusFromMqtt(string esp32MqttIdFromResponse, byte slaveIdFromResponse, string responseStatus, string? responseMessage, ushort? responseAddress = null)
         {
-            var deviceToUpdate = Devices.FirstOrDefault(d =>
-                d.ControllingEsp32MqttId == esp32MqttIdFromResponse &&
-                d.SlaveId == slaveIdFromResponse);
+            var deviceToUpdate = FindDeviceByModbusResponse(esp32MqttIdFromResponse, slaveIdFromResponse, responseAddress, preferPendingCommand: true);
 
             if (deviceToUpdate != null)
             {
@@ -543,6 +553,41 @@ namespace SANJET.Core.ViewModels
                 _logger.LogWarning("UI Update (Command): Device not found. ESP32: {Esp32Id}, Slave: {SlaveId}. Cannot update status from command response.",
                                    esp32MqttIdFromResponse, slaveIdFromResponse);
             }
+        }
+
+        private DeviceViewModel? FindDeviceByModbusResponse(string esp32MqttId, byte slaveId, ushort? responseAddress, bool preferPendingCommand = false)
+        {
+            var candidates = Devices.Where(d =>
+                d.ControllingEsp32MqttId == esp32MqttId &&
+                d.SlaveId == slaveId);
+
+            if (responseAddress.HasValue)
+            {
+                var address = responseAddress.Value;
+                var addressMatchedDevice = candidates.FirstOrDefault(d =>
+                {
+                    var map = ModbusAddressMapping.GetMap(d.Area, d.ModbusDeviceIndex);
+                    return address == map.StatusAddress ||
+                           address == map.ControlAddress ||
+                           address == map.RunCountAddress;
+                });
+
+                if (addressMatchedDevice != null)
+                {
+                    return addressMatchedDevice;
+                }
+            }
+
+            if (preferPendingCommand)
+            {
+                var pendingDevice = candidates.FirstOrDefault(d => d.Status.Contains("啟動中") || d.Status.Contains("停止中"));
+                if (pendingDevice != null)
+                {
+                    return pendingDevice;
+                }
+            }
+
+            return candidates.FirstOrDefault();
         }
     }
 
@@ -585,7 +630,12 @@ namespace SANJET.Core.ViewModels
         [ObservableProperty]
         private string? controllingEsp32MqttId;
 
-        private const ushort MODBUS_CONTROL_REGISTER_ADDRESS = 0;
+        [ObservableProperty]
+        private string area = ModbusAddressMapping.DisplayAreaName;
+
+        [ObservableProperty]
+        private int modbusDeviceIndex = ModbusAddressMapping.DefaultDeviceIndex;
+
         private const ushort MODBUS_VALUE_START = 1;
         private const ushort MODBUS_VALUE_STOP = 0;
 
@@ -702,7 +752,7 @@ namespace SANJET.Core.ViewModels
             bool success = await _mainViewModel.SendModbusWriteCommandAsync(
                 ControllingEsp32MqttId,
                 (byte)SlaveId,
-                MODBUS_CONTROL_REGISTER_ADDRESS,
+                ModbusAddressMapping.GetMap(Area, ModbusDeviceIndex).ControlAddress,
                 MODBUS_VALUE_START);
 
             if (success)
@@ -739,7 +789,7 @@ namespace SANJET.Core.ViewModels
             bool success = await _mainViewModel.SendModbusWriteCommandAsync(
                 ControllingEsp32MqttId,
                 (byte)SlaveId,
-                MODBUS_CONTROL_REGISTER_ADDRESS,
+                ModbusAddressMapping.GetMap(Area, ModbusDeviceIndex).ControlAddress,
                 MODBUS_VALUE_STOP);
 
             if (success)
@@ -801,7 +851,8 @@ namespace SANJET.Core.ViewModels
             bool success = await _mainViewModel.SendModbusWriteRunCountCommandAsync(
                 ControllingEsp32MqttId,
                 (byte)SlaveId,
-                newRunCount);
+                newRunCount,
+                ModbusAddressMapping.GetMap(Area, ModbusDeviceIndex).RunCountAddress);
 
             if (success)
             {

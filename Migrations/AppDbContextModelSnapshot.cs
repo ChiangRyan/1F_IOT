@@ -39,6 +39,9 @@ namespace SANJET.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("ModbusDeviceIndex")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("RunCount")
                         .HasColumnType("INTEGER");
 

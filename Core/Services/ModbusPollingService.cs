@@ -119,25 +119,27 @@ namespace SANJET.Core.Services
                                     continue;
                                 }
 
-                                _logger.LogInformation("輪詢狀態 - ESP32: {Esp32Id}, Slave: {SlaveId}, 地址: {Address}",
-                                    device.ControllingEsp32MqttId, device.SlaveId, ModbusConstants.StatusRelativeAddress);
+                                var addressMap = ModbusAddressMapping.GetMap(device.Area, device.ModbusDeviceIndex);
+
+                                _logger.LogInformation("輪詢狀態 - ESP32: {Esp32Id}, Slave: {SlaveId}, 區域: {Area}, 設備編號: {ModbusDeviceIndex}, 地址: {Address}",
+                                    device.ControllingEsp32MqttId, device.SlaveId, device.Area, device.ModbusDeviceIndex, addressMap.StatusAddress);
                                 await mainViewModel.SendModbusReadCommandAsync(
                                     device.ControllingEsp32MqttId,
                                     (byte)device.SlaveId,
-                                    ModbusConstants.StatusRelativeAddress,
-                                    1, 3
+                                    addressMap.StatusAddress,
+                                    1, addressMap.FunctionCode
                                 );
                                 await Task.Delay(TimeSpan.FromMilliseconds(500), stoppingToken);
 
                                 if (stoppingToken.IsCancellationRequested) break;
 
-                                _logger.LogInformation("輪詢運轉次數 - ESP32: {Esp32Id}, Slave: {SlaveId}, 地址: {Address}",
-                                    device.ControllingEsp32MqttId, device.SlaveId, ModbusConstants.RunCountRelativeAddress);
+                                _logger.LogInformation("輪詢運轉次數 - ESP32: {Esp32Id}, Slave: {SlaveId}, 區域: {Area}, 設備編號: {ModbusDeviceIndex}, 地址: {Address}",
+                                    device.ControllingEsp32MqttId, device.SlaveId, device.Area, device.ModbusDeviceIndex, addressMap.RunCountAddress);
                                 await mainViewModel.SendModbusReadCommandAsync(
                                     device.ControllingEsp32MqttId,
                                     (byte)device.SlaveId,
-                                    ModbusConstants.RunCountRelativeAddress,
-                                    2, 3
+                                    addressMap.RunCountAddress,
+                                    addressMap.RunCountRegisterQuantity, addressMap.FunctionCode
                                 );
                                 await Task.Delay(TimeSpan.FromMilliseconds(500), stoppingToken);
                             }
