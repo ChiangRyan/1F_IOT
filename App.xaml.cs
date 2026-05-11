@@ -203,7 +203,7 @@ namespace SANJET
             {
                 logger.LogInformation("本地資料庫路徑設定為: {DbPath}", databaseSettings.Path);
                 await dbContext.Database.EnsureCreatedAsync();
-                await EnsureDeviceAreaColumnAsync(dbContext, logger);
+                await EnsureDeviceColumnsAsync(dbContext, logger);
                 SeedData(dbContext, logger);
                 return true;
             }
@@ -215,10 +215,10 @@ namespace SANJET
         }
 
         /// <summary>
-        /// 確保既有 SQLite 資料庫具備設備區域欄位。EnsureCreated 不會更新已存在的資料表，
-        /// 因此舊資料庫需要在讀取 Devices 前補上 Area 欄位。
+        /// 確保既有 SQLite 資料庫具備目前 Device 模型需要的欄位。EnsureCreated 不會更新已存在的資料表，
+        /// 因此舊資料庫需要在讀取 Devices 前補上新欄位，避免登入後首頁載入設備時因缺欄位而中斷導航。
         /// </summary>
-        private async Task EnsureDeviceAreaColumnAsync(AppDbContext dbContext, ILogger<App> logger)
+        private async Task EnsureDeviceColumnsAsync(AppDbContext dbContext, ILogger<App> logger)
         {
             var connection = dbContext.Database.GetDbConnection();
             var shouldCloseConnection = connection.State == ConnectionState.Closed;
@@ -230,28 +230,35 @@ namespace SANJET
 
             try
             {
-                await using var checkCommand = connection.CreateCommand();
-                checkCommand.CommandText = "PRAGMA table_info(Devices);";
-
-                var hasAreaColumn = false;
-                await using (var reader = await checkCommand.ExecuteReaderAsync())
+                var existingColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                await using (var checkCommand = connection.CreateCommand())
                 {
+                    checkCommand.CommandText = "PRAGMA table_info(Devices);";
+                    await using var reader = await checkCommand.ExecuteReaderAsync();
                     while (await reader.ReadAsync())
                     {
-                        if (string.Equals(reader[1]?.ToString(), "Area", StringComparison.OrdinalIgnoreCase))
+                        var columnName = reader[1]?.ToString();
+                        if (!string.IsNullOrWhiteSpace(columnName))
                         {
-                            hasAreaColumn = true;
-                            break;
+                            existingColumns.Add(columnName);
                         }
                     }
                 }
 
-                if (!hasAreaColumn)
+                if (!existingColumns.Contains("Area"))
                 {
-                    await using var alterCommand = connection.CreateCommand();
-                    alterCommand.CommandText = "ALTER TABLE Devices ADD COLUMN Area TEXT NOT NULL DEFAULT '展機區';";
-                    await alterCommand.ExecuteNonQueryAsync();
+                    await using var alterAreaCommand = connection.CreateCommand();
+                    alterAreaCommand.CommandText = "ALTER TABLE Devices ADD COLUMN Area TEXT NOT NULL DEFAULT '展機區';";
+                    await alterAreaCommand.ExecuteNonQueryAsync();
                     logger.LogInformation("已為既有 Devices 資料表新增 Area 欄位，預設為展機區。");
+                }
+
+                if (!existingColumns.Contains("ModbusDeviceIndex"))
+                {
+                    await using var alterModbusDeviceIndexCommand = connection.CreateCommand();
+                    alterModbusDeviceIndexCommand.CommandText = "ALTER TABLE Devices ADD COLUMN ModbusDeviceIndex INTEGER NOT NULL DEFAULT 1;";
+                    await alterModbusDeviceIndexCommand.ExecuteNonQueryAsync();
+                    logger.LogInformation("已為既有 Devices 資料表新增 ModbusDeviceIndex 欄位，預設為 1。");
                 }
             }
             finally

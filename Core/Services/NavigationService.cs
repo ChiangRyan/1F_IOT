@@ -34,20 +34,19 @@ namespace SANJET.Core.Services
             {
                 _logger.LogInformation("已在首頁，僅刷新數據。");
                 currentViewModel.CanControlDevice = GetCanControlDevice();
-                await currentViewModel.LoadDevicesAsync();
+                await LoadHomeDevicesSafelyAsync(currentViewModel);
                 return;
             }
 
-            // 創建新頁面並設置 ViewModel
+            // 先建立首頁與 DataContext 並完成導航，再載入設備資料；即使資料庫欄位或資料載入異常，首頁仍會顯示。
             var homePageInstance = _serviceProvider.GetService<HomePage>() ?? new HomePage();
             var homeViewModel = _serviceProvider.GetService<HomeViewModel>();
 
             if (homeViewModel != null)
             {
                 homeViewModel.CanControlDevice = GetCanControlDevice();
-                await homeViewModel.LoadDevicesAsync();
                 homePageInstance.DataContext = homeViewModel;
-                _logger.LogInformation("已為首頁設置 HomeViewModel 並加載設備數據。");
+                _logger.LogInformation("已為首頁設置 HomeViewModel。");
             }
             else
             {
@@ -56,6 +55,25 @@ namespace SANJET.Core.Services
 
             frame.Navigate(homePageInstance);
             _logger.LogInformation("成功導航到首頁，Frame 內容類型：{ContentType}", frame.Content?.GetType().Name);
+
+            if (homeViewModel != null)
+            {
+                await LoadHomeDevicesSafelyAsync(homeViewModel);
+            }
+        }
+
+
+        private async Task LoadHomeDevicesSafelyAsync(HomeViewModel homeViewModel)
+        {
+            try
+            {
+                await homeViewModel.LoadDevicesAsync();
+                _logger.LogInformation("首頁設備資料載入完成。");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "首頁已顯示，但載入設備資料失敗。請確認資料庫結構已完成初始化。");
+            }
         }
 
         public void NavigateToSettings(Frame? frame)

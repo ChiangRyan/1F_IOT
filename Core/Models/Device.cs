@@ -16,6 +16,9 @@ namespace SANJET.Core.Models
         // 所屬區域：展機區或測試區。
         public string Area { get; set; } = "展機區";
 
+        // 同一個 Modbus 從站內的邏輯設備編號。展機區維持 1；測試區用 1~4 對應不同暫存器位置。
+        public int ModbusDeviceIndex { get; set; } = 1;
+
         // 新增欄位：控制此 Modbus 從設備的 ESP32 的 MQTT ID
         public string? ControllingEsp32MqttId { get; set; }
 
