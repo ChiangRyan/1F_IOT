@@ -195,6 +195,11 @@ namespace SANJET.UI.Views.Windows
                 var rtspUrl = _viewModel.BuildRtspUrl1();
 
                 ResetPlayerBeforeStart(_mediaPlayer1, ref _media1);
+                _mediaPlayer1.Stop();
+                Thread.Sleep(100);
+
+                _media1?.Dispose();
+                _media1 = null;
 
                 _media1 = new Media(_libVLC, new Uri(rtspUrl));
                 _media1.AddOption(":rtsp-tcp");
@@ -243,6 +248,11 @@ namespace SANJET.UI.Views.Windows
                 var rtspUrl = _viewModel.BuildRtspUrl2();
 
                 ResetPlayerBeforeStart(_mediaPlayer2, ref _media2);
+                _mediaPlayer2.Stop();
+                Thread.Sleep(100);
+
+                _media2?.Dispose();
+                _media2 = null;
 
                 _media2 = new Media(_libVLC, new Uri(rtspUrl));
                 _media2.AddOption(":rtsp-tcp");
