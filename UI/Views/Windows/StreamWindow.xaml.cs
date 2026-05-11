@@ -6,6 +6,7 @@ using System;
 using System.ComponentModel;
 using System.Runtime.Versioning;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 
@@ -22,8 +23,13 @@ namespace SANJET.UI.Views.Windows
         private SettingsPageViewModel? _viewModel;
         private ILibVLCInitializationService? _libVLCService;
         private int _currentScreen = 1;
+        private const int RtspConnectionTimeoutSeconds = 8;
         private bool _stream1Connected = false;
         private bool _stream2Connected = false;
+        private bool _stream1Connecting = false;
+        private bool _stream2Connecting = false;
+        private CancellationTokenSource? _stream1ConnectionCts;
+        private CancellationTokenSource? _stream2ConnectionCts;
         private bool _ownsLibVLC = false;
         private bool _isDisposed = false;
 
@@ -133,6 +139,7 @@ namespace SANJET.UI.Views.Windows
                 StreamStatusText.Text = _stream1Connected
                     ? "攝像頭 1 - 已連接"
                     : "攝像頭 1 - 未連接";
+                StreamStatusText.Foreground = Brushes.White;
 
                 StatusDot.Fill = _stream1Connected
                     ? Brushes.LimeGreen
@@ -143,6 +150,7 @@ namespace SANJET.UI.Views.Windows
                 StreamStatusText.Text = _stream2Connected
                     ? "攝像頭 2 - 已連接"
                     : "攝像頭 2 - 未連接";
+                StreamStatusText.Foreground = Brushes.White;
 
                 StatusDot.Fill = _stream2Connected
                     ? Brushes.LimeGreen
@@ -156,16 +164,21 @@ namespace SANJET.UI.Views.Windows
                 ? _stream1Connected
                 : _stream2Connected;
 
+            bool connecting = _currentScreen == 1
+                ? _stream1Connecting
+                : _stream2Connecting;
+
             ConnectButton1.Visibility = connected ? Visibility.Collapsed : Visibility.Visible;
-            DisconnectButton1.Visibility = connected ? Visibility.Visible : Visibility.Collapsed;
+            ConnectButton1.IsEnabled = !connecting;
+            DisconnectButton1.Visibility = connected || connecting ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        private void Connect1_Click(object sender, RoutedEventArgs e)
+        private async void Connect1_Click(object sender, RoutedEventArgs e)
         {
             if (_currentScreen == 1)
-                StartStream1();
+                await StartStream1();
             else
-                StartStream2();
+                await StartStream2();
         }
 
         private void Disconnect1_Click(object sender, RoutedEventArgs e)
@@ -176,21 +189,24 @@ namespace SANJET.UI.Views.Windows
                 StopStream2();
         }
 
-        private void StartStream1()
+        private async Task StartStream1()
         {
             try
             {
                 if (_isDisposed || _libVLC == null || _mediaPlayer1 == null || _viewModel == null)
                     return;
 
-                if (_stream1Connected)
+                if (_stream1Connected || _stream1Connecting)
                     return;
 
                 _currentScreen = 1;
+                _stream1Connecting = true;
+                var connectionCts = ResetConnectionToken(ref _stream1ConnectionCts);
 
                 StreamStatusText.Text = "攝像頭 1 - 連接中...";
                 StreamStatusText.Foreground = Brushes.White;
                 StatusDot.Fill = Brushes.Orange;
+                UpdateControlButtons();
 
                 var rtspUrl = _viewModel.BuildRtspUrl1();
 
@@ -206,8 +222,14 @@ namespace SANJET.UI.Views.Windows
                 _media1.AddOption(":network-caching=300");
 
                 RtspVideoView1.MediaPlayer = _mediaPlayer1;
+                var playbackStartedTask = WaitForPlaybackStartedAsync(_mediaPlayer1, 1, connectionCts.Token);
                 if (!_mediaPlayer1.Play(_media1))
+                {
+                    connectionCts.Cancel();
                     throw new InvalidOperationException("攝像頭 1 播放器啟動失敗。");
+                }
+
+                await playbackStartedTask;
 
                 _stream1Connected = true;
 
@@ -219,6 +241,15 @@ namespace SANJET.UI.Views.Windows
             catch (Exception ex)
             {
                 _stream1Connected = false;
+                _stream1Connecting = false;
+
+                if (ex is OperationCanceledException && !_isDisposed)
+                {
+                    UpdateStatusUI();
+                    return;
+                }
+
+                StopStream1(updateUi: false);
 
                 StreamStatusText.Text = $"攝像頭 1 - 連接失敗: {ex.Message}";
                 StreamStatusText.Foreground = Brushes.Red;
@@ -227,23 +258,32 @@ namespace SANJET.UI.Views.Windows
                 ConnectButton1.Visibility = Visibility.Visible;
                 DisconnectButton1.Visibility = Visibility.Collapsed;
             }
+            finally
+            {
+                _stream1Connecting = false;
+                if (!_isDisposed)
+                    UpdateControlButtons();
+            }
         }
 
-        private void StartStream2()
+        private async Task StartStream2()
         {
             try
             {
                 if (_isDisposed || _libVLC == null || _mediaPlayer2 == null || _viewModel == null)
                     return;
 
-                if (_stream2Connected)
+                if (_stream2Connected || _stream2Connecting)
                     return;
 
                 _currentScreen = 2;
+                _stream2Connecting = true;
+                var connectionCts = ResetConnectionToken(ref _stream2ConnectionCts);
 
                 StreamStatusText.Text = "攝像頭 2 - 連接中...";
                 StreamStatusText.Foreground = Brushes.White;
                 StatusDot.Fill = Brushes.Orange;
+                UpdateControlButtons();
 
                 var rtspUrl = _viewModel.BuildRtspUrl2();
 
@@ -259,8 +299,14 @@ namespace SANJET.UI.Views.Windows
                 _media2.AddOption(":network-caching=300");
 
                 RtspVideoView2.MediaPlayer = _mediaPlayer2;
+                var playbackStartedTask = WaitForPlaybackStartedAsync(_mediaPlayer2, 2, connectionCts.Token);
                 if (!_mediaPlayer2.Play(_media2))
+                {
+                    connectionCts.Cancel();
                     throw new InvalidOperationException("攝像頭 2 播放器啟動失敗。");
+                }
+
+                await playbackStartedTask;
 
                 _stream2Connected = true;
 
@@ -270,6 +316,15 @@ namespace SANJET.UI.Views.Windows
             catch (Exception ex)
             {
                 _stream2Connected = false;
+                _stream2Connecting = false;
+
+                if (ex is OperationCanceledException && !_isDisposed)
+                {
+                    UpdateStatusUI();
+                    return;
+                }
+
+                StopStream2(updateUi: false);
 
                 StreamStatusText.Text = $"攝像頭 2 - 連接失敗: {ex.Message}";
                 StreamStatusText.Foreground = Brushes.Red;
@@ -277,8 +332,54 @@ namespace SANJET.UI.Views.Windows
 
                 UpdateControlButtons();
             }
+            finally
+            {
+                _stream2Connecting = false;
+                if (!_isDisposed)
+                    UpdateControlButtons();
+            }
         }
 
+        private static CancellationTokenSource ResetConnectionToken(ref CancellationTokenSource? connectionCts)
+        {
+            connectionCts?.Cancel();
+            connectionCts?.Dispose();
+            connectionCts = new CancellationTokenSource();
+            return connectionCts;
+        }
+
+        private async Task WaitForPlaybackStartedAsync(LibVLCSharp.Shared.MediaPlayer mediaPlayer, int cameraNumber, CancellationToken cancellationToken)
+        {
+            var playbackStarted = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            void PlayingHandler(object? sender, EventArgs args) => playbackStarted.TrySetResult(null);
+            void EncounteredErrorHandler(object? sender, EventArgs args) => playbackStarted.TrySetException(new InvalidOperationException($"攝像頭 {cameraNumber} 無法建立 RTSP 串流，請確認攝影機已安裝、IP/帳密/串流路徑正確。"));
+            void StoppedHandler(object? sender, EventArgs args) => playbackStarted.TrySetException(new InvalidOperationException($"攝像頭 {cameraNumber} RTSP 串流已停止。"));
+
+            mediaPlayer.Playing += PlayingHandler;
+            mediaPlayer.EncounteredError += EncounteredErrorHandler;
+            mediaPlayer.Stopped += StoppedHandler;
+
+            using var cancellationRegistration = cancellationToken.Register(() => playbackStarted.TrySetCanceled(cancellationToken));
+
+            try
+            {
+                var completedTask = await Task.WhenAny(
+                    playbackStarted.Task,
+                    Task.Delay(TimeSpan.FromSeconds(RtspConnectionTimeoutSeconds)));
+
+                if (completedTask != playbackStarted.Task)
+                    throw new TimeoutException($"攝像頭 {cameraNumber} 連線逾時（{RtspConnectionTimeoutSeconds} 秒），請確認攝影機已上線並可存取 RTSP。");
+
+                await playbackStarted.Task;
+            }
+            finally
+            {
+                mediaPlayer.Playing -= PlayingHandler;
+                mediaPlayer.EncounteredError -= EncounteredErrorHandler;
+                mediaPlayer.Stopped -= StoppedHandler;
+            }
+        }
 
         private static void ResetPlayerBeforeStart(LibVLCSharp.Shared.MediaPlayer mediaPlayer, ref Media? media)
         {
@@ -298,6 +399,8 @@ namespace SANJET.UI.Views.Windows
         {
             try
             {
+                _stream1ConnectionCts?.Cancel();
+
                 _mediaPlayer1?.Stop();
                 Thread.Sleep(200);
 
@@ -305,6 +408,7 @@ namespace SANJET.UI.Views.Windows
                 _media1 = null;
 
                 _stream1Connected = false;
+                _stream1Connecting = false;
 
                 if (updateUi && !_isDisposed)
                 {
@@ -330,6 +434,8 @@ namespace SANJET.UI.Views.Windows
         {
             try
             {
+                _stream2ConnectionCts?.Cancel();
+
                 _mediaPlayer2?.Stop();
                 Thread.Sleep(200);
 
@@ -337,6 +443,7 @@ namespace SANJET.UI.Views.Windows
                 _media2 = null;
 
                 _stream2Connected = false;
+                _stream2Connecting = false;
 
                 if (updateUi && !_isDisposed)
                 {
@@ -367,7 +474,7 @@ namespace SANJET.UI.Views.Windows
             Screen2Container.Visibility = Visibility.Collapsed;
 
             // Stop stream 2 when switching away from it
-            if (_stream2Connected)
+            if (_stream2Connected || _stream2Connecting)
             {
                 StopStream2();
                 UpdateStatusUI();
@@ -384,7 +491,7 @@ namespace SANJET.UI.Views.Windows
             Screen2Container.Visibility = Visibility.Visible;
 
             // Stop stream 1 when switching away from it
-            if (_stream1Connected)
+            if (_stream1Connected || _stream1Connecting)
             {
                 StopStream1();
                 UpdateStatusUI();
