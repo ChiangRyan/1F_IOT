@@ -3,7 +3,9 @@ using Microsoft.Extensions.DependencyInjection;
 using SANJET.Core.Services;
 using SANJET.Core.ViewModels;
 using System;
+using System.ComponentModel;
 using System.Runtime.Versioning;
+using System.Threading;
 using System.Windows;
 using System.Windows.Media;
 
@@ -22,6 +24,8 @@ namespace SANJET.UI.Views.Windows
         private int _currentScreen = 1;
         private bool _stream1Connected = false;
         private bool _stream2Connected = false;
+        private bool _ownsLibVLC = false;
+        private bool _isDisposed = false;
 
         public StreamWindow(SettingsPageViewModel viewModel)
         {
@@ -53,6 +57,7 @@ namespace SANJET.UI.Views.Windows
                     "--rtsp-tcp",
                     "--network-caching=300"
                 );
+                _ownsLibVLC = true;
             }
 
             _mediaPlayer1 = new LibVLCSharp.Shared.MediaPlayer(_libVLC);
@@ -61,6 +66,7 @@ namespace SANJET.UI.Views.Windows
             RtspVideoView2.MediaPlayer = _mediaPlayer2;
 
             Loaded += StreamWindow_Loaded;
+            Closing += StreamWindow_Closing;
             Unloaded += StreamWindow_Unloaded;
         }
 
@@ -80,10 +86,25 @@ namespace SANJET.UI.Views.Windows
             }
         }
 
+        private void StreamWindow_Closing(object? sender, CancelEventArgs e)
+        {
+            DisposeStreamResources();
+        }
+
         private void StreamWindow_Unloaded(object sender, RoutedEventArgs e)
         {
-            StopStream1();
-            StopStream2();
+            DisposeStreamResources();
+        }
+
+        private void DisposeStreamResources()
+        {
+            if (_isDisposed)
+                return;
+
+            _isDisposed = true;
+
+            StopStream1(updateUi: false);
+            StopStream2(updateUi: false);
 
             RtspVideoView1.MediaPlayer = null;
             RtspVideoView2.MediaPlayer = null;
@@ -94,8 +115,14 @@ namespace SANJET.UI.Views.Windows
             _mediaPlayer2?.Dispose();
             _mediaPlayer2 = null;
 
-            // 不清理 _libVLC，因為它是通過 ILibVLCInitializationService 管理的全局單例
-            // 清理將由應用程序關閉時的服務清理處理
+            // 如果 LibVLC 由全域 ILibVLCInitializationService 管理，不能在視窗關閉時釋放；
+            // 只有本視窗自行建立的後備實例才需要在此 Dispose。
+            if (_ownsLibVLC)
+            {
+                _libVLC?.Dispose();
+                _ownsLibVLC = false;
+            }
+
             _libVLC = null;
         }
 
@@ -153,7 +180,7 @@ namespace SANJET.UI.Views.Windows
         {
             try
             {
-                if (_libVLC == null || _mediaPlayer1 == null || _viewModel == null)
+                if (_isDisposed || _libVLC == null || _mediaPlayer1 == null || _viewModel == null)
                     return;
 
                 if (_stream1Connected)
@@ -167,20 +194,15 @@ namespace SANJET.UI.Views.Windows
 
                 var rtspUrl = _viewModel.BuildRtspUrl1();
 
-                if (_mediaPlayer1.IsPlaying)
-                {
-                    _mediaPlayer1.Stop();
-                    System.Threading.Thread.Sleep(100);
-                }
-
-                _media1?.Dispose();
-                _media1 = null;
+                ResetPlayerBeforeStart(_mediaPlayer1, ref _media1);
 
                 _media1 = new Media(_libVLC, new Uri(rtspUrl));
                 _media1.AddOption(":rtsp-tcp");
                 _media1.AddOption(":network-caching=300");
 
-                _mediaPlayer1.Play(_media1);
+                RtspVideoView1.MediaPlayer = _mediaPlayer1;
+                if (!_mediaPlayer1.Play(_media1))
+                    throw new InvalidOperationException("攝像頭 1 播放器啟動失敗。");
 
                 _stream1Connected = true;
 
@@ -206,7 +228,7 @@ namespace SANJET.UI.Views.Windows
         {
             try
             {
-                if (_libVLC == null || _mediaPlayer2 == null || _viewModel == null)
+                if (_isDisposed || _libVLC == null || _mediaPlayer2 == null || _viewModel == null)
                     return;
 
                 if (_stream2Connected)
@@ -220,20 +242,15 @@ namespace SANJET.UI.Views.Windows
 
                 var rtspUrl = _viewModel.BuildRtspUrl2();
 
-                if (_mediaPlayer2.IsPlaying)
-                {
-                    _mediaPlayer2.Stop();
-                    System.Threading.Thread.Sleep(100);
-                }
-
-                _media2?.Dispose();
-                _media2 = null;
+                ResetPlayerBeforeStart(_mediaPlayer2, ref _media2);
 
                 _media2 = new Media(_libVLC, new Uri(rtspUrl));
                 _media2.AddOption(":rtsp-tcp");
                 _media2.AddOption(":network-caching=300");
 
-                _mediaPlayer2.Play(_media2);
+                RtspVideoView2.MediaPlayer = _mediaPlayer2;
+                if (!_mediaPlayer2.Play(_media2))
+                    throw new InvalidOperationException("攝像頭 2 播放器啟動失敗。");
 
                 _stream2Connected = true;
 
@@ -252,61 +269,79 @@ namespace SANJET.UI.Views.Windows
             }
         }
 
-        private void StopStream1()
+
+        private static void ResetPlayerBeforeStart(LibVLCSharp.Shared.MediaPlayer mediaPlayer, ref Media? media)
+        {
+            // 不要對剛建立、尚未綁定媒體的播放器呼叫 Stop()；部分 LibVLC/WPF 組合
+            // 會讓接下來的第一次 Play() 進入異常狀態，造成 UI 顯示已連接但畫面不出現。
+            if (media != null || mediaPlayer.IsPlaying)
+            {
+                mediaPlayer.Stop();
+                Thread.Sleep(100);
+            }
+
+            media?.Dispose();
+            media = null;
+        }
+
+        private void StopStream1(bool updateUi = true)
         {
             try
             {
-                if (_mediaPlayer1 != null)
-                {
-                    if (_mediaPlayer1.IsPlaying)
-                    {
-                        _mediaPlayer1.Stop();
-                        System.Threading.Thread.Sleep(200);
-                    }
-                }
+                _mediaPlayer1?.Stop();
+                Thread.Sleep(200);
 
                 _media1?.Dispose();
                 _media1 = null;
 
                 _stream1Connected = false;
 
-                ConnectButton1.Visibility = Visibility.Visible;
-                DisconnectButton1.Visibility = Visibility.Collapsed;
+                if (updateUi && !_isDisposed)
+                {
+                    ConnectButton1.Visibility = Visibility.Visible;
+                    DisconnectButton1.Visibility = Visibility.Collapsed;
 
-                // ⭐ 統一更新 UI（重點）
-                UpdateStatusUI();
+                    // ⭐ 統一更新 UI（重點）
+                    UpdateStatusUI();
+                }
             }
             catch (Exception ex)
             {
-                StreamStatusText.Text = $"攝像頭 1 - 斷開失敗: {ex.Message}";
-                StreamStatusText.Foreground = Brushes.Red;
-                StatusDot.Fill = Brushes.Red;
+                if (updateUi && !_isDisposed)
+                {
+                    StreamStatusText.Text = $"攝像頭 1 - 斷開失敗: {ex.Message}";
+                    StreamStatusText.Foreground = Brushes.Red;
+                    StatusDot.Fill = Brushes.Red;
+                }
             }
         }
 
-        private void StopStream2()
+        private void StopStream2(bool updateUi = true)
         {
             try
             {
-                if (_mediaPlayer2 != null && _mediaPlayer2.IsPlaying)
-                {
-                    _mediaPlayer2.Stop();
-                    System.Threading.Thread.Sleep(200);
-                }
+                _mediaPlayer2?.Stop();
+                Thread.Sleep(200);
 
                 _media2?.Dispose();
                 _media2 = null;
 
                 _stream2Connected = false;
 
-                UpdateControlButtons();
-                UpdateStatusUI();
+                if (updateUi && !_isDisposed)
+                {
+                    UpdateControlButtons();
+                    UpdateStatusUI();
+                }
             }
             catch (Exception ex)
             {
-                StreamStatusText.Text = $"攝像頭 2 - 斷開失敗: {ex.Message}";
-                StreamStatusText.Foreground = Brushes.Red;
-                StatusDot.Fill = Brushes.Red;
+                if (updateUi && !_isDisposed)
+                {
+                    StreamStatusText.Text = $"攝像頭 2 - 斷開失敗: {ex.Message}";
+                    StreamStatusText.Foreground = Brushes.Red;
+                    StatusDot.Fill = Brushes.Red;
+                }
             }
         }
 
