@@ -195,17 +195,18 @@ namespace SANJET.UI.Views.Windows
                 var rtspUrl = _viewModel.BuildRtspUrl1();
 
                 ResetPlayerBeforeStart(_mediaPlayer1, ref _media1);
-                _mediaPlayer1.Stop();
-                Thread.Sleep(100);
-
-                _media1?.Dispose();
-                _media1 = null;
 
                 _media1 = new Media(_libVLC, new Uri(rtspUrl));
                 _media1.AddOption(":rtsp-tcp");
                 _media1.AddOption(":network-caching=300");
 
-                RtspVideoView1.MediaPlayer = _mediaPlayer1;
+                // 確保 VideoView 綁定到 MediaPlayer
+                if (RtspVideoView1.MediaPlayer != _mediaPlayer1)
+                {
+                    RtspVideoView1.MediaPlayer = _mediaPlayer1;
+                    Thread.Sleep(50);
+                }
+
                 if (!_mediaPlayer1.Play(_media1))
                     throw new InvalidOperationException("攝像頭 1 播放器啟動失敗。");
 
@@ -248,17 +249,18 @@ namespace SANJET.UI.Views.Windows
                 var rtspUrl = _viewModel.BuildRtspUrl2();
 
                 ResetPlayerBeforeStart(_mediaPlayer2, ref _media2);
-                _mediaPlayer2.Stop();
-                Thread.Sleep(100);
-
-                _media2?.Dispose();
-                _media2 = null;
 
                 _media2 = new Media(_libVLC, new Uri(rtspUrl));
                 _media2.AddOption(":rtsp-tcp");
                 _media2.AddOption(":network-caching=300");
 
-                RtspVideoView2.MediaPlayer = _mediaPlayer2;
+                // 確保 VideoView 綁定到 MediaPlayer
+                if (RtspVideoView2.MediaPlayer != _mediaPlayer2)
+                {
+                    RtspVideoView2.MediaPlayer = _mediaPlayer2;
+                    Thread.Sleep(50);
+                }
+
                 if (!_mediaPlayer2.Play(_media2))
                     throw new InvalidOperationException("攝像頭 2 播放器啟動失敗。");
 

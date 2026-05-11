@@ -104,19 +104,29 @@
         <!-- 視頻顯示區域 - 單一畫面 -->
         <Border 
             Grid.Row="2"
-            Background="Transparent"
-            Padding="10"
-            Margin="10">
+            Background="Black"
+            Padding="0"
+            Margin="0">
             <Grid>
 
                 <!-- 攝像頭 1 -->
-                <Grid x:Name="Screen1Container">
-                    <vlc:VideoView x:Name="RtspVideoView1"/>
+                <Grid x:Name="Screen1Container" Background="Black">
+                    <vlc:VideoView x:Name="RtspVideoView1" 
+                                   Width="Auto"
+                                   Height="Auto"
+                                   HorizontalAlignment="Stretch"
+                                   VerticalAlignment="Stretch"/>
                 </Grid>
 
                 <!-- 攝像頭 2 -->
-                <Grid x:Name="Screen2Container" Visibility="Collapsed">
-                    <vlc:VideoView x:Name="RtspVideoView2"/>
+                <Grid x:Name="Screen2Container" 
+                      Visibility="Collapsed"
+                      Background="Black">
+                    <vlc:VideoView x:Name="RtspVideoView2"
+                                   Width="Auto"
+                                   Height="Auto"
+                                   HorizontalAlignment="Stretch"
+                                   VerticalAlignment="Stretch"/>
                 </Grid>
 
             </Grid>
