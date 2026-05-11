@@ -228,8 +228,6 @@ namespace SANJET.UI.Views.Windows
                     throw new InvalidOperationException("攝像頭 1 播放器啟動失敗。");
                 }
 
-                await playbackStartedTask;
-
                 _stream1Connected = true;
 
                 ConnectButton1.Visibility = Visibility.Collapsed;
@@ -298,8 +296,6 @@ namespace SANJET.UI.Views.Windows
                     connectionCts.Cancel();
                     throw new InvalidOperationException("攝像頭 2 播放器啟動失敗。");
                 }
-
-                await playbackStartedTask;
 
                 _stream2Connected = true;
 
