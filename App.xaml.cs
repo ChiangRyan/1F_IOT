@@ -1,10 +1,11 @@
-// 檔案路徑: App.xaml.cs
+﻿// 檔案路徑: App.xaml.cs
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SANJET.Core;
+using SANJET.Core.Configuration;
 using SANJET.Core.Interfaces;
 using SANJET.Core.Models;
 using SANJET.Core.Services;
@@ -71,6 +72,21 @@ namespace SANJET
                     {
                         services.AddLogging(configure => configure.AddDebug().SetMinimumLevel(LogLevel.Debug));
 
+                        var lineMessagingSection = context.Configuration.GetSection("LineMessaging");
+                        var lineMessagingOptions = new LineMessagingOptions
+                        {
+                            Enabled = bool.TryParse(lineMessagingSection["Enabled"], out var lineEnabled) && lineEnabled,
+                            ChannelAccessToken = lineMessagingSection["ChannelAccessToken"] ?? string.Empty,
+                            TargetIds = lineMessagingSection.GetSection("TargetIds")
+                                .GetChildren()
+                                .Select(child => child.Value ?? string.Empty)
+                                .Where(value => !string.IsNullOrWhiteSpace(value))
+                                .ToArray(),
+                            CooldownMinutes = int.TryParse(lineMessagingSection["CooldownMinutes"], out var cooldownMinutes) ? cooldownMinutes : 30,
+                            NotifyRecovery = !bool.TryParse(lineMessagingSection["NotifyRecovery"], out var notifyRecovery) || notifyRecovery
+                        };
+                        services.AddSingleton(lineMessagingOptions);
+
                         // 將 SQLite 放在使用者 LocalAppData，避免安裝目錄沒有寫入權限導致啟動失敗。
                         var localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
                         var appDataPath = Path.Combine(localAppDataPath, "SanjetScada");
@@ -105,6 +121,8 @@ namespace SANJET
                         services.AddSingleton<IAudioService, AudioService>();
                         services.AddSingleton<IDatabaseManagementService, DatabaseManagementService>();
                         services.AddSingleton<ILibVLCInitializationService, LibVLCInitializationService>();
+                        services.AddSingleton<ILineNotificationService, LineNotificationService>();
+                        services.AddSingleton<IFaultNotificationService, FaultNotificationService>();
 
                         services.AddHostedService<MqttClientConnectionService>();
                         services.AddHostedService<ModbusPollingService>();
