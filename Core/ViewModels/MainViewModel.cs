@@ -65,6 +65,7 @@ namespace SANJET.Core.ViewModels
         private readonly IServiceProvider _serviceProvider;
         private readonly IPollingStateService _pollingStateService;
         private readonly INavigationService _navigationService;
+        private readonly IFaultNotificationService _faultNotificationService;
 
         private Frame? _mainContentFrame;
         private bool _isFrameInitialized; // 追蹤 Frame 是否就緒
@@ -106,7 +107,8 @@ namespace SANJET.Core.ViewModels
         ILogger<MainViewModel> logger,
         IServiceProvider serviceProvider,
         IPollingStateService pollingStateService,
-        INavigationService navigationService)
+        INavigationService navigationService,
+        IFaultNotificationService faultNotificationService)
         {
             _authService = authService;
             _mqttService = mqttService;
@@ -114,6 +116,7 @@ namespace SANJET.Core.ViewModels
             _serviceProvider = serviceProvider;
             _pollingStateService = pollingStateService;
             _navigationService = navigationService;
+            _faultNotificationService = faultNotificationService;
 
             this.esp32Devices = [];
             _isFrameInitialized = false; // Frame 未初始化
@@ -287,8 +290,10 @@ namespace SANJET.Core.ViewModels
                                         {
                                             _logger.LogInformation("資料庫更新 (嘗試): ESP32 {Esp32Id}, Slave {SlaveId} - 狀態從 '{OldStatus}' 變為 '{NewStatus}' (原始值: {RawStatus}) (來自位址 {Addr})",
                                                                    responseData.DeviceId, responseData.SlaveId, deviceInDb.Status, newDeviceStatus, rawStatus, responseData.Address);
+                                            var oldDeviceStatus = deviceInDb.Status;
                                             deviceInDb.Status = newDeviceStatus;
                                             dbChanged = true;
+                                            await _faultNotificationService.NotifyStatusChangedAsync(deviceInDb, oldDeviceStatus, newDeviceStatus, DateTime.Now);
                                         }
                                     }
                                     else if (responseData.Address == addressMap.RunCountAddress && responseData.Quantity == addressMap.RunCountRegisterQuantity && responseData.Data.Length >= addressMap.RunCountRegisterQuantity)
@@ -332,8 +337,10 @@ namespace SANJET.Core.ViewModels
                                     if (deviceInDb.Status != "通訊失敗")
                                     {
                                         _logger.LogInformation("資料庫更新 (嘗試): ESP32 {Esp32Id}, Slave {SlaveId} - 由於讀取錯誤，狀態變為 '通訊失敗'。", responseData.DeviceId, responseData.SlaveId);
+                                        var oldDeviceStatus = deviceInDb.Status;
                                         deviceInDb.Status = "通訊失敗";
                                         deviceInDb.Timestamp = DateTime.UtcNow;
+                                        await _faultNotificationService.NotifyStatusChangedAsync(deviceInDb, oldDeviceStatus, deviceInDb.Status, DateTime.Now);
                                         await dbContext.SaveChangesAsync();
                                         _logger.LogInformation("資料庫儲存 (成功): ESP32 {Esp32Id}, Slave {SlaveId} 的狀態已設為 '通訊失敗'。", responseData.DeviceId, responseData.SlaveId);
                                         dbChanged = true;
