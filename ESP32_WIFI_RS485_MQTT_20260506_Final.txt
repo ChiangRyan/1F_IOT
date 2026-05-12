@@ -372,7 +372,7 @@ void wifiTask(void *pvParameters) {
     } else {
       if (wasWiFiDown) {
         wasWiFiDown = false;
-        Serial.println("[連線任務] WiFi 已恢復，IP: " + WiFi.localIP().toString());
+        Serial.println("[連線任務] WiFi 已恢復,IP: " + WiFi.localIP().toString());
       }
 
       setLEDState(true);
@@ -390,7 +390,7 @@ void wifiTask(void *pvParameters) {
       } else {
         mqtt_connected = true;
         if (millis() - lastStatusLog >= WIFI_STATUS_LOG_INTERVAL) {
-          Serial.println("[連線任務] WiFi / MQTT 正常，IP: " + WiFi.localIP().toString() +
+          Serial.println("[連線任務] WiFi / MQTT 正常IP: " + WiFi.localIP().toString() +
                          ", RSSI: " + String(WiFi.RSSI()) + " dBm");
           lastStatusLog = millis();
         }
@@ -589,53 +589,59 @@ void handleMqttWriteModbus(byte* payload, unsigned int length) {
     JSONVar values = request["values"];
     uint16_t quantity = values.length();
 
+    if (quantity < 1 || quantity > 10) {
+      Serial.println("[Modbus寫入] 無效的 values 數量: " + String(quantity));
+      response["Status"] = "error";
+      response["SlaveId"] = slaveId;
+      response["Address"] = (int)request["address"];
+      response["Quantity"] = quantity;
+      response["FunctionCode"] = 16;
+      response["Message"] = "values 數量必須介於 1 和 10 之間";
+      client.publish(topic_modbus_write_resp, JSON.stringify(response).c_str());
+      return;
+    }
+
     node.begin(slaveId, Serial2);
-    uint8_t result = node.ku8MBSuccess;
 
-    Serial.println("[Modbus寫入] 改為逐筆單寫, 起始位址 " + String(address));
+    Serial.println("[Modbus寫入] 功能碼 16 多筆寫入, 起始位址 " + String(address) +
+                   ", 數量 " + String(quantity));
 
-    for (int i = 0; i < quantity; i++) {
+    for (uint16_t i = 0; i < quantity; i++) {
       uint16_t val = (int)values[i];
-
-      Serial.println("[Modbus寫入] 準備寫入 -> Addr: " + String(address + i) +
+      node.setTransmitBuffer(i, val);
+      Serial.println("[Modbus寫入] Buffer[" + String(i) + "] -> Addr: " + String(address + i) +
                      " Val: " + String(val));
+    }
 
-      uint8_t retries = 3;
-      uint8_t writeResult = 0xFF;
+    uint8_t result = 0xFF;
+    uint8_t retries = 3;
 
-      while (retries > 0) {
-        Serial.println("[Modbus寫入] 嘗試寫入 (retry=" + String(3 - retries) + ")");
+    while (retries > 0) {
+      Serial.println("[Modbus寫入] 嘗試功能碼 16 多筆寫入 (retry=" + String(3 - retries) + ")");
 
-        writeResult = node.writeSingleRegister(address + i, val);
+      result = node.writeMultipleRegisters(address, quantity);
 
-        if (writeResult == node.ku8MBSuccess) {
-          Serial.println("[Modbus寫入] 成功 -> Addr: " + String(address + i) +
-                         " Val: " + String(val));
-          break;
-        }
-
-        Serial.println("[Modbus寫入] 失敗，錯誤碼: 0x" + String(writeResult, HEX));
-        retries--;
-        delay(50);
-      }
-
-      if (writeResult != node.ku8MBSuccess) {
-        result = writeResult;
-        Serial.println("[Modbus寫入] 最終失敗 at index " + String(i));
+      if (result == node.ku8MBSuccess) {
+        Serial.println("[Modbus寫入] 功能碼 16 多筆寫入成功");
         break;
       }
 
-      delay(10);
+      Serial.println("[Modbus寫入] 功能碼 16 多筆寫入失敗，錯誤碼: 0x" + String(result, HEX));
+      retries--;
+      delay(100);
     }
+
+    response["SlaveId"] = slaveId;
+    response["Address"] = (int)request["address"];
+    response["Quantity"] = quantity;
+    response["FunctionCode"] = 16;
 
     if (result == node.ku8MBSuccess) {
       response["Status"] = "success";
-      response["SlaveId"] = slaveId;
-      response["Message"] = "逐筆寫入成功";
+      response["Message"] = "功能碼 16 多筆寫入成功";
     } else {
       response["Status"] = "error";
-      response["SlaveId"] = slaveId;
-      response["Message"] = "逐筆寫入失敗，錯誤碼: 0x" + String(result, HEX);
+      response["Message"] = "功能碼 16 多筆寫入失敗，錯誤碼: 0x" + String(result, HEX);
     }
 
     client.publish(topic_modbus_write_resp, JSON.stringify(response).c_str());
