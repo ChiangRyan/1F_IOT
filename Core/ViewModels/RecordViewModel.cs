@@ -186,7 +186,7 @@ namespace SANJET.Core.ViewModels
         [RelayCommand]
         private void ExportToExcel()
         {
-            var saveFileDialog = new SaveFileDialog
+            var saveFileDialog = new Microsoft.Win32.SaveFileDialog
             {
                 Filter = "Excel 檔案 (*.xlsx)|*.xlsx",
                 Title = "匯出設備紀錄",
