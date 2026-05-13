@@ -44,8 +44,8 @@ namespace SANJET.Core.Services
                     return;
                 }
 
-                _lastFaultNotificationTimes[device.Id] = occurredAt;
                 await _lineNotificationService.SendTextMessageAsync(BuildFaultMessage(device, oldStatus, newStatus, occurredAt), cancellationToken);
+                _lastFaultNotificationTimes[device.Id] = occurredAt;
                 return;
             }
 

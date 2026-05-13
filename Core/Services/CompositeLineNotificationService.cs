@@ -29,8 +29,12 @@ namespace SANJET.Core.Services
             if (enabledChannels.Length == 0)
             {
                 _logger.LogWarning("未啟用任何 LINE 通知通道，略過推播。訊息: {Message}", message);
-                return;
+                throw new InvalidOperationException("未啟用任何 LINE 通知通道，無法發送通知。");
             }
+
+            var attemptedChannelCount = 0;
+            var succeededChannelCount = 0;
+            var exceptions = new List<Exception>();
 
             foreach (var channel in enabledChannels)
             {
@@ -40,9 +44,12 @@ namespace SANJET.Core.Services
                     continue;
                 }
 
+                attemptedChannelCount++;
+
                 try
                 {
                     await channel.SendTextMessageAsync(message, cancellationToken);
+                    succeededChannelCount++;
                 }
                 catch (OperationCanceledException)
                 {
@@ -50,8 +57,19 @@ namespace SANJET.Core.Services
                 }
                 catch (Exception ex)
                 {
+                    exceptions.Add(ex);
                     _logger.LogError(ex, "LINE 通知通道 {ChannelName} 發送失敗。", channel.ChannelName);
                 }
+            }
+
+            if (succeededChannelCount == 0)
+            {
+                if (attemptedChannelCount == 0)
+                {
+                    throw new InvalidOperationException("已啟用的 LINE 通知通道皆未完成設定，無法發送通知。");
+                }
+
+                throw new AggregateException("所有已設定的 LINE 通知通道皆發送失敗。", exceptions);
             }
         }
     }

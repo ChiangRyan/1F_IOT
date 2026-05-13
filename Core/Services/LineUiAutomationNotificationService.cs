@@ -86,6 +86,9 @@ namespace SANJET.Core.Services
                     OpenChatWithoutSearch(lineWindow, chatName);
                     WaitForUiDelay(2);
 
+                    lineWindow = AutomationElement.FromHandle(lineProcess.MainWindowHandle)
+                        ?? throw new InvalidOperationException("無法重新取得 LINE 主視窗的 UI Automation 元素。");
+
                     var inputBox = FocusMessageInput(lineWindow);
                     WaitForUiDelay();
 
@@ -161,7 +164,7 @@ namespace SANJET.Core.Services
 
             var inputBox = lineWindow.FindAll(TreeScope.Descendants, editCondition)
                 .Cast<AutomationElement>()
-                .Where(IsLikelyMessageInput)
+                .Where(element => IsLikelyMessageInput(lineWindow, element))
                 .OrderByDescending(GetElementTop)
                 .FirstOrDefault();
 
@@ -173,6 +176,10 @@ namespace SANJET.Core.Services
             if (!TryFocusElement(inputBox))
             {
                 ClickElement(inputBox, "LINE 訊息輸入框");
+            }
+            else if (!TryClickElement(inputBox, "LINE 訊息輸入框"))
+            {
+                _logger.LogDebug("LINE 訊息輸入框可取得焦點但沒有可點擊座標，將只使用鍵盤貼上。ElementName: {ElementName}", inputBox.Current.Name);
             }
 
             return inputBox;
@@ -197,19 +204,23 @@ namespace SANJET.Core.Services
                 return;
             }
 
-            if (inputHasText is null)
-            {
-                _logger.LogWarning("LINE 訊息輸入框不支援讀取內容，已完成貼上快捷鍵操作但無法自動驗證文字是否出現。");
-                return;
-            }
+            _logger.LogDebug(
+                inputHasText is null
+                    ? "LINE 訊息輸入框不支援讀取內容，改用 SendKeys 再貼上一次以提高成功率。"
+                    : "LINE UI Automation 第一次 Ctrl+V 後未偵測到訊息，改用 SendKeys 再貼上一次。");
 
-            _logger.LogDebug("LINE UI Automation 第一次 Ctrl+V 後未偵測到訊息，改用 SendKeys 再貼上一次。");
             SendKeys.SendWait("^v");
             WaitForUiDelay(2);
 
-            if (InputContainsMessage(inputBox, message) == false)
+            inputHasText = InputContainsMessage(inputBox, message);
+            if (inputHasText == false)
             {
                 throw new InvalidOperationException("已點選 LINE 訊息輸入框，但無法確認訊息已貼上，已停止送出以避免傳送空白訊息。");
+            }
+
+            if (inputHasText is null)
+            {
+                _logger.LogWarning("LINE 訊息輸入框不支援讀取內容，已執行兩種貼上方式但無法自動驗證文字是否出現。若畫面沒有文字，請檢查 LINE 是否在前景、聊天室是否已開啟，以及 Windows 是否允許程式操作剪貼簿/鍵盤。");
             }
         }
 
@@ -367,26 +378,47 @@ namespace SANJET.Core.Services
 
         private void ClickElement(AutomationElement element, string description)
         {
-            if (!element.TryGetClickablePoint(out var point))
+            if (!TryClickElement(element, description))
             {
                 throw new InvalidOperationException($"找不到可點擊的 {description}，已停止操作以避免貼錯位置。");
+            }
+        }
+
+        private bool TryClickElement(AutomationElement element, string description)
+        {
+            if (!element.TryGetClickablePoint(out var point))
+            {
+                _logger.LogDebug("找不到可點擊的 {Description}。ElementName: {ElementName}", description, element.Current.Name);
+                return false;
             }
 
             SetCursorPos((int)Math.Round(point.X), (int)Math.Round(point.Y));
             WaitForUiDelay();
             mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
             mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
+            return true;
         }
 
-        private static bool IsLikelyMessageInput(AutomationElement element)
+        private static bool IsLikelyMessageInput(AutomationElement lineWindow, AutomationElement element)
         {
             if (element.Current.IsOffscreen)
             {
                 return false;
             }
 
+            var windowRectangle = lineWindow.Current.BoundingRectangle;
             var rectangle = element.Current.BoundingRectangle;
-            return !rectangle.IsEmpty && rectangle.Width >= 100 && rectangle.Height >= 20;
+            if (windowRectangle.IsEmpty || rectangle.IsEmpty || rectangle.Width < 100 || rectangle.Height < 20)
+            {
+                return false;
+            }
+
+            var elementCenterX = rectangle.Left + (rectangle.Width / 2);
+            var elementCenterY = rectangle.Top + (rectangle.Height / 2);
+            var composeAreaLeftBoundary = windowRectangle.Left + (windowRectangle.Width * 0.35);
+            var composeAreaTopBoundary = windowRectangle.Top + (windowRectangle.Height * 0.55);
+
+            return elementCenterX >= composeAreaLeftBoundary && elementCenterY >= composeAreaTopBoundary;
         }
 
         private static bool SupportsPattern(AutomationElement element, AutomationPattern pattern)
