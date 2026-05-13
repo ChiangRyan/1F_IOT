@@ -78,8 +78,8 @@ $env:LineMessaging__TargetIds__0="你的 userId 或 groupId"
 
 1. 確認 LINE 程序是否存在，不存在時依 `LineExecutablePath` 啟動。
 2. 將 LINE 主視窗切到前景。
-3. 使用 `Ctrl+F` 搜尋目標聊天室名稱。
-4. 透過剪貼簿貼上故障訊息。
+3. 透過 Windows UI Automation 在左側聊天室清單直接尋找並點選 `TargetChatNames`，不再使用 `Ctrl+F` 搜尋。
+4. 找到 LINE 訊息輸入框後，才透過剪貼簿貼上故障訊息。
 5. 送出訊息。
 
 ### 3.1 `appsettings.json` 範例
@@ -112,7 +112,7 @@ $env:LineMessaging__TargetIds__0="你的 userId 或 groupId"
 | `Enabled` | 是否啟用桌面版 LINE 自動操作通道。 |
 | `LineExecutablePath` | LINE 未啟動時要執行的啟動程式路徑。 |
 | `LineProcessName` | LINE 程序名稱，通常維持 `LINE`。 |
-| `TargetChatNames` | 要接收訊息的聊天室或群組名稱，需與 LINE 搜尋結果一致。 |
+| `TargetChatNames` | 要接收訊息的聊天室或群組名稱，需與 LINE 左側聊天室清單顯示名稱一致。 |
 | `OperationTimeoutSeconds` | 等待 LINE 啟動或操作的逾時秒數。 |
 | `SendDelayMilliseconds` | 每個 UI 操作之間的等待時間；現場電腦較慢時可調大。 |
 | `RestoreClipboard` | 發送後是否嘗試還原原本的文字剪貼簿內容。 |
@@ -122,6 +122,7 @@ $env:LineMessaging__TargetIds__0="你的 userId 或 groupId"
 - Windows 必須維持登入且桌面工作階段可操作；鎖定畫面、登出或無互動 Session 可能導致失敗。
 - LINE 桌面版必須已登入，且不能停在 QR Code、更新、公告或錯誤彈窗。
 - 發送期間請避免人工操作鍵盤滑鼠，避免焦點被搶走造成貼錯視窗。
+- 請先將目標聊天室固定或保留在 LINE 左側聊天室清單可見範圍；若找不到清單中的聊天室，程式會停止操作以避免將故障訊息貼到錯誤位置。
 - 若聊天室或群組改名，請同步更新 `TargetChatNames`。
 - 桌面版自動操作不像 Messaging API 有 HTTP 回應碼，因此成功判斷主要依流程是否發生例外與程式日誌。
 
