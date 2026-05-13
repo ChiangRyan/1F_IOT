@@ -87,22 +87,24 @@ namespace SANJET
                         };
                         services.AddSingleton(lineMessagingOptions);
 
-                        var lineUiAutomationSection = context.Configuration.GetSection("LineUiAutomation");
-                        var lineUiAutomationOptions = new LineUiAutomationOptions
+                        var lineAutoHotkeySection = context.Configuration.GetSection("LineAutoHotkey");
+                        var lineAutoHotkeyOptions = new LineAutoHotkeyOptions
                         {
-                            Enabled = bool.TryParse(lineUiAutomationSection["Enabled"], out var uiAutomationEnabled) && uiAutomationEnabled,
-                            LineExecutablePath = lineUiAutomationSection["LineExecutablePath"] ?? string.Empty,
-                            LineProcessName = lineUiAutomationSection["LineProcessName"] ?? "LINE",
-                            TargetChatNames = lineUiAutomationSection.GetSection("TargetChatNames")
+                            Enabled = bool.TryParse(lineAutoHotkeySection["Enabled"], out var autoHotkeyEnabled) && autoHotkeyEnabled,
+                            AutoHotkeyExecutablePath = lineAutoHotkeySection["AutoHotkeyExecutablePath"] ?? @"C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe",
+                            AutoHotkeyVersion = lineAutoHotkeySection["AutoHotkeyVersion"] ?? "v2",
+                            LineExecutablePath = lineAutoHotkeySection["LineExecutablePath"] ?? string.Empty,
+                            LineProcessName = lineAutoHotkeySection["LineProcessName"] ?? "LINE",
+                            TargetChatNames = lineAutoHotkeySection.GetSection("TargetChatNames")
                                 .GetChildren()
                                 .Select(child => child.Value ?? string.Empty)
                                 .Where(value => !string.IsNullOrWhiteSpace(value))
                                 .ToArray(),
-                            OperationTimeoutSeconds = int.TryParse(lineUiAutomationSection["OperationTimeoutSeconds"], out var operationTimeoutSeconds) ? operationTimeoutSeconds : 15,
-                            SendDelayMilliseconds = int.TryParse(lineUiAutomationSection["SendDelayMilliseconds"], out var sendDelayMilliseconds) ? sendDelayMilliseconds : 300,
-                            RestoreClipboard = !bool.TryParse(lineUiAutomationSection["RestoreClipboard"], out var restoreClipboard) || restoreClipboard
+                            OperationTimeoutSeconds = int.TryParse(lineAutoHotkeySection["OperationTimeoutSeconds"], out var operationTimeoutSeconds) ? operationTimeoutSeconds : 15,
+                            SendDelayMilliseconds = int.TryParse(lineAutoHotkeySection["SendDelayMilliseconds"], out var sendDelayMilliseconds) ? sendDelayMilliseconds : 300,
+                            RestoreClipboard = !bool.TryParse(lineAutoHotkeySection["RestoreClipboard"], out var restoreClipboard) || restoreClipboard
                         };
-                        services.AddSingleton(lineUiAutomationOptions);
+                        services.AddSingleton(lineAutoHotkeyOptions);
 
                         var faultNotificationSection = context.Configuration.GetSection("FaultNotification");
                         var faultNotificationOptions = new FaultNotificationOptions
@@ -152,7 +154,7 @@ namespace SANJET
                         services.AddSingleton<IDatabaseManagementService, DatabaseManagementService>();
                         services.AddSingleton<ILibVLCInitializationService, LibVLCInitializationService>();
                         services.AddSingleton<ILineNotificationChannel, LineNotificationService>();
-                        services.AddSingleton<ILineNotificationChannel, LineUiAutomationNotificationService>();
+                        services.AddSingleton<ILineNotificationChannel, LineAutoHotkeyNotificationService>();
                         services.AddSingleton<ILineNotificationService, CompositeLineNotificationService>();
                         services.AddSingleton<IFaultNotificationService, FaultNotificationService>();
 
