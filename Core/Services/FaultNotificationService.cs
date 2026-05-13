@@ -12,13 +12,13 @@ namespace SANJET.Core.Services
     public class FaultNotificationService : IFaultNotificationService
     {
         private readonly ILineNotificationService _lineNotificationService;
-        private readonly LineMessagingOptions _options;
+        private readonly FaultNotificationOptions _options;
         private readonly ILogger<FaultNotificationService> _logger;
         private readonly ConcurrentDictionary<int, DateTime> _lastFaultNotificationTimes = new();
 
         public FaultNotificationService(
             ILineNotificationService lineNotificationService,
-            LineMessagingOptions options,
+            FaultNotificationOptions options,
             ILogger<FaultNotificationService> logger)
         {
             _lineNotificationService = lineNotificationService;
@@ -28,7 +28,7 @@ namespace SANJET.Core.Services
 
         public async Task NotifyStatusChangedAsync(Device device, string oldStatus, string newStatus, DateTime occurredAt, CancellationToken cancellationToken = default)
         {
-            if (!_options.Enabled)
+            if (!_options.Enabled || !_lineNotificationService.IsConfigured)
             {
                 return;
             }
