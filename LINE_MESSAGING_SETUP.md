@@ -3,9 +3,9 @@
 本專案支援兩種 LINE 故障推播通道：
 
 1. **LINE Messaging API**：使用 LINE 官方 API 發送訊息。
-2. **LINE UI Automation**：不使用官方 API，改由程式固定操作 Windows 桌面版 LINE App，搜尋聊天室並貼上訊息送出。
+2. **LINE AutoHotkey**：不使用官方 API，改由 AutoHotkey 操作 Windows 桌面版 LINE App，搜尋聊天室並貼上訊息送出。
 
-兩個通道可以同時存在，並由設定檔各自控制啟用狀態。若只想使用桌面版 LINE App，請保留 `LineMessaging` 設定但將 `Enabled` 設為 `false`，再啟用 `LineUiAutomation`。
+兩個通道可以同時存在，並由設定檔各自控制啟用狀態。若只想使用桌面版 LINE App，請保留 `LineMessaging` 設定但將 `Enabled` 設為 `false`，再啟用 `LineAutoHotkey`。
 
 ## 1. 共用故障通知設定
 
@@ -72,14 +72,14 @@ $env:LineMessaging__ChannelAccessToken="你的 Channel access token"
 $env:LineMessaging__TargetIds__0="你的 userId 或 groupId"
 ```
 
-## 3. LINE UI Automation 設定
+## 3. LINE AutoHotkey 設定
 
-此模式不使用 LINE 官方 Messaging API，而是操作目前登入 Windows 桌面工作階段中的 LINE 桌面版 App。它會：
+此模式不使用 LINE 官方 Messaging API，而是啟動 AutoHotkey 腳本操作目前登入 Windows 桌面工作階段中的 LINE 桌面版 App。它會：
 
 1. 確認 LINE 程序是否存在，不存在時依 `LineExecutablePath` 啟動。
 2. 將 LINE 主視窗切到前景。
-3. 透過 Windows UI Automation 在左側聊天室清單直接尋找並點選 `TargetChatNames`，不再使用 `Ctrl+F` 搜尋。
-4. 找到 LINE 訊息輸入框後，才透過剪貼簿貼上故障訊息。
+3. 使用 `Ctrl+F` 搜尋 `TargetChatNames` 指定的聊天室。
+4. 開啟搜尋結果後，透過剪貼簿貼上故障訊息。
 5. 送出訊息。
 
 ### 3.1 `appsettings.json` 範例
@@ -93,8 +93,10 @@ $env:LineMessaging__TargetIds__0="你的 userId 或 groupId"
     "CooldownMinutes": 30,
     "NotifyRecovery": true
   },
-  "LineUiAutomation": {
+  "LineAutoHotkey": {
     "Enabled": true,
+    "AutoHotkeyExecutablePath": "C:\\Program Files\\AutoHotkey\\v2\\AutoHotkey64.exe",
+    "AutoHotkeyVersion": "v2",
     "LineExecutablePath": "C:\\Users\\你的帳號\\AppData\\Local\\LINE\\bin\\LineLauncher.exe",
     "LineProcessName": "LINE",
     "TargetChatNames": [
@@ -110,9 +112,11 @@ $env:LineMessaging__TargetIds__0="你的 userId 或 groupId"
 | 設定 | 說明 |
 | --- | --- |
 | `Enabled` | 是否啟用桌面版 LINE 自動操作通道。 |
+| `AutoHotkeyExecutablePath` | AutoHotkey 執行檔路徑；AutoHotkey v2 預設常見位置為 `C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe`。 |
+| `AutoHotkeyVersion` | 產生腳本的語法版本，支援 `v2` 或 `v1`；建議使用 `v2`。 |
 | `LineExecutablePath` | LINE 未啟動時要執行的啟動程式路徑。 |
 | `LineProcessName` | LINE 程序名稱，通常維持 `LINE`。 |
-| `TargetChatNames` | 要接收訊息的聊天室或群組名稱，需與 LINE 左側聊天室清單顯示名稱一致。 |
+| `TargetChatNames` | 要接收訊息的聊天室或群組名稱，需與 LINE 搜尋時可找到的聊天室或群組名稱一致。 |
 | `OperationTimeoutSeconds` | 等待 LINE 啟動或操作的逾時秒數。 |
 | `SendDelayMilliseconds` | 每個 UI 操作之間的等待時間；現場電腦較慢時可調大。 |
 | `RestoreClipboard` | 發送後是否嘗試還原原本的文字剪貼簿內容。 |
@@ -122,7 +126,8 @@ $env:LineMessaging__TargetIds__0="你的 userId 或 groupId"
 - Windows 必須維持登入且桌面工作階段可操作；鎖定畫面、登出或無互動 Session 可能導致失敗。
 - LINE 桌面版必須已登入，且不能停在 QR Code、更新、公告或錯誤彈窗。
 - 發送期間請避免人工操作鍵盤滑鼠，避免焦點被搶走造成貼錯視窗。
-- 請先將目標聊天室固定或保留在 LINE 左側聊天室清單可見範圍；若找不到清單中的聊天室，程式會停止操作以避免將故障訊息貼到錯誤位置。
+- 請確認 AutoHotkey 已安裝，且 `AutoHotkeyExecutablePath` / `AutoHotkeyVersion` 與實際版本一致。
+- AutoHotkey 會使用 LINE 搜尋功能開啟聊天室；若搜尋結果不唯一，請將 `TargetChatNames` 設成足夠明確的群組或聊天室名稱。
 - 若聊天室或群組改名，請同步更新 `TargetChatNames`。
 - 桌面版自動操作不像 Messaging API 有 HTTP 回應碼，因此成功判斷主要依流程是否發生例外與程式日誌。
 
@@ -141,4 +146,4 @@ $env:LineMessaging__TargetIds__0="你的 userId 或 groupId"
 
 使用 LINE Messaging API 時，台灣 LINE 官方帳號免費方案每月內含訊息數可能依 LINE 官方政策調整。若發送到群組，一次推播可能依可接收成員數計算訊息用量，因此建議保留 `CooldownMinutes`，避免設備連續異常時洗版。
 
-使用 LINE UI Automation 時不消耗 Messaging API 額度，但穩定性取決於 Windows 桌面環境與 LINE App 狀態。
+使用 LINE AutoHotkey 時不消耗 Messaging API 額度，但穩定性取決於 Windows 桌面環境、AutoHotkey 與 LINE App 狀態。
