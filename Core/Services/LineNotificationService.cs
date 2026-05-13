@@ -12,7 +12,7 @@ using SANJET.Core.Interfaces;
 
 namespace SANJET.Core.Services
 {
-    public class LineNotificationService : ILineNotificationService, IDisposable
+    public class LineNotificationService : ILineNotificationChannel, IDisposable
     {
         private const string PushMessageEndpoint = "https://api.line.me/v2/bot/message/push";
         private readonly LineMessagingOptions _options;
@@ -27,8 +27,12 @@ namespace SANJET.Core.Services
             _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         }
 
+        public string ChannelName => "LINE Messaging API";
+
+        public bool IsEnabled => _options.Enabled;
+
         public bool IsConfigured =>
-            _options.Enabled &&
+            IsEnabled &&
             !string.IsNullOrWhiteSpace(_options.ChannelAccessToken) &&
             _options.TargetIds.Any(targetId => !string.IsNullOrWhiteSpace(targetId));
 

@@ -87,6 +87,36 @@ namespace SANJET
                         };
                         services.AddSingleton(lineMessagingOptions);
 
+                        var lineUiAutomationSection = context.Configuration.GetSection("LineUiAutomation");
+                        var lineUiAutomationOptions = new LineUiAutomationOptions
+                        {
+                            Enabled = bool.TryParse(lineUiAutomationSection["Enabled"], out var uiAutomationEnabled) && uiAutomationEnabled,
+                            LineExecutablePath = lineUiAutomationSection["LineExecutablePath"] ?? string.Empty,
+                            LineProcessName = lineUiAutomationSection["LineProcessName"] ?? "LINE",
+                            TargetChatNames = lineUiAutomationSection.GetSection("TargetChatNames")
+                                .GetChildren()
+                                .Select(child => child.Value ?? string.Empty)
+                                .Where(value => !string.IsNullOrWhiteSpace(value))
+                                .ToArray(),
+                            OperationTimeoutSeconds = int.TryParse(lineUiAutomationSection["OperationTimeoutSeconds"], out var operationTimeoutSeconds) ? operationTimeoutSeconds : 15,
+                            SendDelayMilliseconds = int.TryParse(lineUiAutomationSection["SendDelayMilliseconds"], out var sendDelayMilliseconds) ? sendDelayMilliseconds : 300,
+                            RestoreClipboard = !bool.TryParse(lineUiAutomationSection["RestoreClipboard"], out var restoreClipboard) || restoreClipboard
+                        };
+                        services.AddSingleton(lineUiAutomationOptions);
+
+                        var faultNotificationSection = context.Configuration.GetSection("FaultNotification");
+                        var faultNotificationOptions = new FaultNotificationOptions
+                        {
+                            Enabled = !bool.TryParse(faultNotificationSection["Enabled"], out var faultNotificationEnabled) || faultNotificationEnabled,
+                            CooldownMinutes = int.TryParse(faultNotificationSection["CooldownMinutes"], out var faultCooldownMinutes)
+                                ? faultCooldownMinutes
+                                : lineMessagingOptions.CooldownMinutes,
+                            NotifyRecovery = !bool.TryParse(faultNotificationSection["NotifyRecovery"], out var faultNotifyRecovery)
+                                ? lineMessagingOptions.NotifyRecovery
+                                : faultNotifyRecovery
+                        };
+                        services.AddSingleton(faultNotificationOptions);
+
                         // 將 SQLite 放在使用者 LocalAppData，避免安裝目錄沒有寫入權限導致啟動失敗。
                         var localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
                         var appDataPath = Path.Combine(localAppDataPath, "SanjetScada");
@@ -121,7 +151,9 @@ namespace SANJET
                         services.AddSingleton<IAudioService, AudioService>();
                         services.AddSingleton<IDatabaseManagementService, DatabaseManagementService>();
                         services.AddSingleton<ILibVLCInitializationService, LibVLCInitializationService>();
-                        services.AddSingleton<ILineNotificationService, LineNotificationService>();
+                        services.AddSingleton<ILineNotificationChannel, LineNotificationService>();
+                        services.AddSingleton<ILineNotificationChannel, LineUiAutomationNotificationService>();
+                        services.AddSingleton<ILineNotificationService, CompositeLineNotificationService>();
                         services.AddSingleton<IFaultNotificationService, FaultNotificationService>();
 
                         services.AddHostedService<MqttClientConnectionService>();
