@@ -157,6 +157,7 @@ namespace SANJET.Core.Services
                 #SingleInstance Force
                 SetTitleMatchMode 2
                 SetKeyDelay {{delay}}, {{delay}}
+                CoordMode "Mouse", "Screen"
 
                 lineExe := "{{EscapeAutoHotkeyV2String(_options.LineExecutablePath)}}"
                 processName := "{{EscapeAutoHotkeyV2String(processName)}}"
@@ -175,11 +176,16 @@ namespace SANJET.Core.Services
                 if !WinWait("ahk_exe " processName, , timeoutSeconds)
                     ExitApp 21
 
-                WinActivate "ahk_exe " processName
-                if !WinWaitActive("ahk_exe " processName, , timeoutSeconds)
+                lineWindow := WinExist("ahk_exe " processName)
+                if !lineWindow
+                    ExitApp 21
+
+                WinActivate "ahk_id " lineWindow
+                if !WinWaitActive("ahk_id " lineWindow, , timeoutSeconds)
                     ExitApp 22
 
-                Sleep delay
+                FocusLineMessageInput(lineWindow, delay)
+
                 A_Clipboard := message
                 if !ClipWait(2)
                     ExitApp 23
@@ -188,8 +194,17 @@ namespace SANJET.Core.Services
                 Sleep delay
                 Send "{Enter}"
                 Sleep delay * 2
-                WinMinimize "ahk_exe " processName
+                WinMinimize "ahk_id " lineWindow
                 ExitApp 0
+
+                FocusLineMessageInput(lineWindow, delay) {
+                    WinActivate "ahk_id " lineWindow
+                    WinGetPos &windowX, &windowY, &windowWidth, &windowHeight, "ahk_id " lineWindow
+                    clickX := windowX + Round(windowWidth * 0.55)
+                    clickY := windowY + windowHeight - 85
+                    Click clickX, clickY
+                    Sleep delay
+                }
                 """;
         }
 
@@ -204,6 +219,7 @@ namespace SANJET.Core.Services
                 #SingleInstance Force
                 SetTitleMatchMode, 2
                 SetKeyDelay, {{delay}}, {{delay}}
+                CoordMode, Mouse, Screen
 
                 lineExe := "{{EscapeAutoHotkeyV1String(_options.LineExecutablePath)}}"
                 processName := "{{EscapeAutoHotkeyV1String(processName)}}"
@@ -224,12 +240,17 @@ namespace SANJET.Core.Services
                 if ErrorLevel
                     ExitApp, 21
 
-                WinActivate, ahk_exe %processName%
-                WinWaitActive, ahk_exe %processName%,, %timeoutSeconds%
+                WinGet, lineWindow, ID, ahk_exe %processName%
+                if (!lineWindow)
+                    ExitApp, 21
+
+                WinActivate, ahk_id %lineWindow%
+                WinWaitActive, ahk_id %lineWindow%,, %timeoutSeconds%
                 if ErrorLevel
                     ExitApp, 22
 
-                Sleep, %delay%
+                Gosub, FocusLineMessageInput
+
                 Clipboard := message
                 ClipWait, 2
                 if ErrorLevel
@@ -240,8 +261,17 @@ namespace SANJET.Core.Services
                 Send, {Enter}
                 sleepAfterSend := delay * 2
                 Sleep, %sleepAfterSend%
-                WinMinimize, ahk_exe %processName%
+                WinMinimize, ahk_id %lineWindow%
                 ExitApp, 0
+
+                FocusLineMessageInput:
+                    WinActivate, ahk_id %lineWindow%
+                    WinGetPos, windowX, windowY, windowWidth, windowHeight, ahk_id %lineWindow%
+                    clickX := windowX + Round(windowWidth * 0.55)
+                    clickY := windowY + windowHeight - 85
+                    Click, %clickX%, %clickY%
+                    Sleep, %delay%
+                Return
                 """;
         }
 
