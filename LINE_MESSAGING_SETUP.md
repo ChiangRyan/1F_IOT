@@ -78,9 +78,10 @@ $env:LineMessaging__TargetIds__0="你的 userId 或 groupId"
 
 1. 確認 LINE 程序是否存在，不存在時依 `LineExecutablePath` 啟動。
 2. 將 LINE 主視窗切到前景。
-3. 不執行搜尋，直接透過剪貼簿把故障訊息貼到目前 LINE 視窗的輸入框。
-4. 送出訊息。
-5. 傳送完成後將 LINE 視窗最小化，避免下次操作時焦點或視窗狀態異常。
+3. 若 `TargetChatNames` 有設定，會先檢查目前 LINE 視窗標題是否已包含目標聊天室名稱；不符合時會先搜尋並開啟目標聊天室。
+4. 將訊息輸入框聚焦後，透過剪貼簿把故障訊息貼上。
+5. 送出訊息。
+6. 傳送完成後將 LINE 視窗最小化，避免下次操作時焦點或視窗狀態異常。
 
 ### 3.1 `appsettings.json` 範例
 
@@ -99,7 +100,7 @@ $env:LineMessaging__TargetIds__0="你的 userId 或 groupId"
     "AutoHotkeyVersion": "v2",
     "LineExecutablePath": "C:\\Users\\你的帳號\\AppData\\Local\\LINE\\bin\\LineLauncher.exe",
     "LineProcessName": "LINE",
-    "TargetChatNames": [],
+    "TargetChatNames": ["設備故障通知群組"],
     "OperationTimeoutSeconds": 15,
     "SendDelayMilliseconds": 300,
     "RestoreClipboard": true
@@ -114,7 +115,7 @@ $env:LineMessaging__TargetIds__0="你的 userId 或 groupId"
 | `AutoHotkeyVersion` | 產生腳本的語法版本，支援 `v2` 或 `v1`；建議使用 `v2`。 |
 | `LineExecutablePath` | LINE 未啟動時要執行的啟動程式路徑。 |
 | `LineProcessName` | LINE 程序名稱，通常維持 `LINE`。 |
-| `TargetChatNames` | 保留相容舊設定；目前 AutoHotkey 流程不再搜尋聊天室，會直接貼到目前 LINE 視窗，因此此欄位可留空。 |
+| `TargetChatNames` | 要發送故障通知的聊天室名稱，可設定一個或多個。若目前 LINE 視窗標題不含目標聊天室名稱，AutoHotkey 會先用 LINE 搜尋開啟該聊天室再貼上訊息；若留空則維持舊行為，直接送到目前聊天室。 |
 | `OperationTimeoutSeconds` | 等待 LINE 啟動或操作的逾時秒數。 |
 | `SendDelayMilliseconds` | 每個 UI 操作之間的等待時間；現場電腦較慢時可調大。 |
 | `RestoreClipboard` | 發送後是否嘗試還原原本的文字剪貼簿內容。 |
@@ -125,7 +126,8 @@ $env:LineMessaging__TargetIds__0="你的 userId 或 groupId"
 - LINE 桌面版必須已登入，且不能停在 QR Code、更新、公告或錯誤彈窗。
 - 發送期間請避免人工操作鍵盤滑鼠，避免焦點被搶走造成貼錯視窗。
 - 請確認 AutoHotkey 已安裝，且 `AutoHotkeyExecutablePath` / `AutoHotkeyVersion` 與實際版本一致。
-- AutoHotkey 不再使用 LINE 搜尋功能；請先讓 LINE 停在正確聊天室或讓現場流程確保目前視窗就是要發送的聊天室。
+- 建議設定 `TargetChatNames`；若留空，AutoHotkey 無法判斷正確聊天室，會直接沿用目前 LINE 聊天室。
+- `TargetChatNames` 必須與 LINE 搜尋可找到的聊天室、群組或好友名稱一致；發送期間請勿人工操作，以免搜尋結果或焦點被干擾。
 - 訊息送出後會自動最小化 LINE 視窗，避免下一次通知操作受到前一次視窗狀態影響。
 - 桌面版自動操作不像 Messaging API 有 HTTP 回應碼，因此成功判斷主要依流程是否發生例外與程式日誌。
 
