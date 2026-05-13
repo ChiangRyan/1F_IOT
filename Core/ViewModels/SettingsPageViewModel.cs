@@ -189,7 +189,7 @@ namespace SANJET.Core.ViewModels
         [RelayCommand]
         private async Task BackupDatabaseAsync()
         {
-            var saveFileDialog = new SaveFileDialog
+            var saveFileDialog = new Microsoft.Win32.SaveFileDialog
             {
                 Filter = "資料庫備份檔案 (*.db)|*.db|所有檔案 (*.*)|*.*",
                 Title = "選擇備份路徑",
@@ -212,7 +212,7 @@ namespace SANJET.Core.ViewModels
         [RelayCommand]
         private async Task RestoreDatabaseAsync()
         {
-            var openFileDialog = new OpenFileDialog
+            var openFileDialog = new Microsoft.Win32.OpenFileDialog
             {
                 Filter = "資料庫備份檔案 (*.db)|*.db|所有檔案 (*.*)|*.*",
                 Title = "選擇要還原的備份檔案"
