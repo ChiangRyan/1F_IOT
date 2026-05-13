@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Automation;
 using Microsoft.Extensions.Logging;
 using SANJET.Core.Configuration;
 using SANJET.Core.Interfaces;
@@ -79,14 +80,14 @@ namespace SANJET.Core.Services
 
                 try
                 {
-                    // LINE 桌面版的 Ctrl+F 可開啟搜尋；貼上聊天室名稱後按 Enter 進入聊天室。
-                    SendKeys.SendWait("^f");
-                    WaitForUiDelay();
-                    Clipboard.SetText(chatName);
-                    SendKeys.SendWait("^v");
-                    WaitForUiDelay();
-                    SendKeys.SendWait("{ENTER}");
+                    var lineWindow = AutomationElement.FromHandle(lineProcess.MainWindowHandle)
+                        ?? throw new InvalidOperationException("無法取得 LINE 主視窗的 UI Automation 元素。");
+
+                    OpenChatWithoutSearch(lineWindow, chatName);
                     WaitForUiDelay(2);
+
+                    FocusMessageInput(lineWindow);
+                    WaitForUiDelay();
 
                     Clipboard.SetText(message);
                     SendKeys.SendWait("^v");
@@ -103,6 +104,198 @@ namespace SANJET.Core.Services
             }, cancellationToken);
 
             _logger.LogInformation("LINE UI Automation 故障通知已送出。ChatName: {ChatName}", chatName);
+        }
+
+        private void OpenChatWithoutSearch(AutomationElement lineWindow, string chatName)
+        {
+            var chatElement = FindChatElement(lineWindow, chatName)
+                ?? throw new InvalidOperationException($"LINE 視窗中找不到可直接點選的聊天室「{chatName}」。請先將該聊天室固定或保留在左側聊天清單中，避免使用 Ctrl+F 搜尋時貼錯位置。");
+
+            if (!TrySelectElement(chatElement))
+            {
+                ClickElement(chatElement, $"聊天室「{chatName}」");
+            }
+        }
+
+        private AutomationElement? FindChatElement(AutomationElement lineWindow, string chatName)
+        {
+            var chatNameCondition = new PropertyCondition(AutomationElement.NameProperty, chatName, PropertyConditionFlags.IgnoreCase);
+            var controlTypeCondition = new OrCondition(
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem),
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button),
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text),
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Custom),
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.DataItem));
+
+            var exactMatches = lineWindow.FindAll(
+                TreeScope.Descendants,
+                new AndCondition(chatNameCondition, controlTypeCondition));
+
+            var exactMatch = exactMatches
+                .Cast<AutomationElement>()
+                .Where(element => IsInChatListArea(lineWindow, element))
+                .OrderBy(GetElementTop)
+                .FirstOrDefault();
+
+            if (exactMatch is not null)
+            {
+                return GetClickableAncestor(exactMatch) ?? exactMatch;
+            }
+
+            var candidates = lineWindow.FindAll(TreeScope.Descendants, controlTypeCondition)
+                .Cast<AutomationElement>()
+                .Where(element => ElementNameMatches(element, chatName))
+                .Where(element => IsInChatListArea(lineWindow, element))
+                .OrderBy(GetElementTop)
+                .ToArray();
+
+            return candidates
+                .Select(element => GetClickableAncestor(element) ?? element)
+                .FirstOrDefault();
+        }
+
+        private void FocusMessageInput(AutomationElement lineWindow)
+        {
+            var editCondition = new AndCondition(
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit),
+                new PropertyCondition(AutomationElement.IsEnabledProperty, true));
+
+            var inputBox = lineWindow.FindAll(TreeScope.Descendants, editCondition)
+                .Cast<AutomationElement>()
+                .Where(IsLikelyMessageInput)
+                .OrderByDescending(GetElementTop)
+                .FirstOrDefault();
+
+            if (inputBox is null)
+            {
+                throw new InvalidOperationException("找不到 LINE 訊息輸入框，已停止貼上訊息以避免送到錯誤位置。");
+            }
+
+            if (!TryFocusElement(inputBox))
+            {
+                ClickElement(inputBox, "LINE 訊息輸入框");
+            }
+        }
+
+        private static bool ElementNameMatches(AutomationElement element, string expectedName)
+        {
+            var name = element.Current.Name?.Trim();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return false;
+            }
+
+            return string.Equals(name, expectedName, StringComparison.OrdinalIgnoreCase) ||
+                name.StartsWith(expectedName + " ", StringComparison.OrdinalIgnoreCase) ||
+                name.StartsWith(expectedName + Environment.NewLine, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsInChatListArea(AutomationElement lineWindow, AutomationElement element)
+        {
+            var windowRectangle = lineWindow.Current.BoundingRectangle;
+            var elementRectangle = element.Current.BoundingRectangle;
+
+            if (windowRectangle.IsEmpty || elementRectangle.IsEmpty || element.Current.IsOffscreen)
+            {
+                return false;
+            }
+
+            var elementCenterX = elementRectangle.Left + (elementRectangle.Width / 2);
+            var chatListRightBoundary = windowRectangle.Left + (windowRectangle.Width * 0.45);
+            return elementCenterX <= chatListRightBoundary;
+        }
+
+        private static AutomationElement? GetClickableAncestor(AutomationElement element)
+        {
+            var walker = TreeWalker.ControlViewWalker;
+            var current = element;
+
+            for (var depth = 0; depth < 4 && current is not null; depth++)
+            {
+                if (SupportsPattern(current, SelectionItemPattern.Pattern) ||
+                    SupportsPattern(current, InvokePattern.Pattern) ||
+                    HasUsableClickablePoint(current))
+                {
+                    return current;
+                }
+
+                current = walker.GetParent(current);
+            }
+
+            return null;
+        }
+
+        private bool TrySelectElement(AutomationElement element)
+        {
+            if (element.TryGetCurrentPattern(SelectionItemPattern.Pattern, out var selectionPatternObject) &&
+                selectionPatternObject is SelectionItemPattern selectionPattern)
+            {
+                selectionPattern.Select();
+                return true;
+            }
+
+            if (element.TryGetCurrentPattern(InvokePattern.Pattern, out var invokePatternObject) &&
+                invokePatternObject is InvokePattern invokePattern)
+            {
+                invokePattern.Invoke();
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryFocusElement(AutomationElement element)
+        {
+            try
+            {
+                element.SetFocus();
+                return true;
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogDebug(ex, "LINE UI Automation 無法直接 Focus 元素，改用滑鼠點擊。ElementName: {ElementName}", element.Current.Name);
+                return false;
+            }
+        }
+
+        private void ClickElement(AutomationElement element, string description)
+        {
+            if (!element.TryGetClickablePoint(out var point))
+            {
+                throw new InvalidOperationException($"找不到可點擊的 {description}，已停止操作以避免貼錯位置。");
+            }
+
+            SetCursorPos((int)Math.Round(point.X), (int)Math.Round(point.Y));
+            WaitForUiDelay();
+            mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
+            mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
+        }
+
+        private static bool IsLikelyMessageInput(AutomationElement element)
+        {
+            if (element.Current.IsOffscreen)
+            {
+                return false;
+            }
+
+            var rectangle = element.Current.BoundingRectangle;
+            return !rectangle.IsEmpty && rectangle.Width >= 100 && rectangle.Height >= 20;
+        }
+
+        private static bool SupportsPattern(AutomationElement element, AutomationPattern pattern)
+        {
+            return element.TryGetCurrentPattern(pattern, out _);
+        }
+
+        private static bool HasUsableClickablePoint(AutomationElement element)
+        {
+            return !element.Current.IsOffscreen && element.TryGetClickablePoint(out _);
+        }
+
+        private static double GetElementTop(AutomationElement element)
+        {
+            var rectangle = element.Current.BoundingRectangle;
+            return rectangle.IsEmpty ? double.MaxValue : rectangle.Top;
         }
 
         private async Task<Process> EnsureLineProcessAsync(CancellationToken cancellationToken)
@@ -196,10 +389,19 @@ namespace SANJET.Core.Services
             Thread.Sleep(delay);
         }
 
+        private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
+        private const uint MOUSEEVENTF_LEFTUP = 0x0004;
+
         [DllImport("user32.dll")]
         private static extern bool SetForegroundWindow(IntPtr hWnd);
 
         [DllImport("user32.dll")]
         private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetCursorPos(int x, int y);
+
+        [DllImport("user32.dll")]
+        private static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
     }
 }
