@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -45,8 +46,20 @@ namespace SANJET.Core.Services
             await _sendLock.WaitAsync(cancellationToken);
             try
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                await SendTextMessageToLineWindowAsync(message, cancellationToken);
+                var targetChatNames = GetTargetChatNames();
+                if (targetChatNames.Length == 0)
+                {
+                    _logger.LogWarning("LINE AutoHotkey 未設定 TargetChatNames，將沿用目前 LINE 聊天室直接發送。建議設定目標聊天室以避免傳錯對象。");
+                    cancellationToken.ThrowIfCancellationRequested();
+                    await SendTextMessageToLineWindowAsync(null, message, cancellationToken);
+                    return;
+                }
+
+                foreach (var chatName in targetChatNames)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    await SendTextMessageToLineWindowAsync(chatName, message, cancellationToken);
+                }
             }
             finally
             {
@@ -54,7 +67,7 @@ namespace SANJET.Core.Services
             }
         }
 
-        private async Task SendTextMessageToLineWindowAsync(string message, CancellationToken cancellationToken)
+        private async Task SendTextMessageToLineWindowAsync(string? chatName, string message, CancellationToken cancellationToken)
         {
             string? originalClipboardText = null;
             var hadClipboardText = false;
@@ -69,14 +82,23 @@ namespace SANJET.Core.Services
 
             try
             {
+                var chatFilePath = Path.Combine(tempDirectory, "chat.txt");
                 var messageFilePath = Path.Combine(tempDirectory, "message.txt");
                 var scriptFilePath = Path.Combine(tempDirectory, "send-line-message.ahk");
 
+                await File.WriteAllTextAsync(chatFilePath, chatName ?? string.Empty, new UTF8Encoding(false), cancellationToken);
                 await File.WriteAllTextAsync(messageFilePath, message, new UTF8Encoding(false), cancellationToken);
-                await File.WriteAllTextAsync(scriptFilePath, BuildAutoHotkeyScript(messageFilePath), new UTF8Encoding(false), cancellationToken);
+                await File.WriteAllTextAsync(scriptFilePath, BuildAutoHotkeyScript(chatFilePath, messageFilePath), new UTF8Encoding(false), cancellationToken);
 
-                await RunAutoHotkeyScriptAsync(scriptFilePath, cancellationToken);
-                _logger.LogInformation("LINE AutoHotkey 故障通知已送出。以目前 LINE 視窗直接貼上並送出。");
+                await RunAutoHotkeyScriptAsync(scriptFilePath, chatName, cancellationToken);
+                if (string.IsNullOrWhiteSpace(chatName))
+                {
+                    _logger.LogInformation("LINE AutoHotkey 故障通知已送出。以目前 LINE 視窗直接貼上並送出。");
+                }
+                else
+                {
+                    _logger.LogInformation("LINE AutoHotkey 故障通知已送出。ChatName: {ChatName}", chatName);
+                }
             }
             finally
             {
@@ -89,7 +111,7 @@ namespace SANJET.Core.Services
             }
         }
 
-        private async Task RunAutoHotkeyScriptAsync(string scriptFilePath, CancellationToken cancellationToken)
+        private async Task RunAutoHotkeyScriptAsync(string scriptFilePath, string? chatName, CancellationToken cancellationToken)
         {
             using var process = new Process
             {
@@ -105,9 +127,10 @@ namespace SANJET.Core.Services
                 EnableRaisingEvents = true
             };
 
-            _logger.LogDebug("啟動 AutoHotkey 傳送 LINE 訊息。ExecutablePath: {ExecutablePath}, ScriptPath: {ScriptPath}",
+            _logger.LogDebug("啟動 AutoHotkey 傳送 LINE 訊息。ExecutablePath: {ExecutablePath}, ScriptPath: {ScriptPath}, ChatName: {ChatName}",
                 _options.AutoHotkeyExecutablePath,
-                scriptFilePath);
+                scriptFilePath,
+                chatName);
 
             try
             {
@@ -125,7 +148,7 @@ namespace SANJET.Core.Services
             if (completedTask != waitTask)
             {
                 TryKillProcess(process);
-                throw new TimeoutException($"AutoHotkey 操作 LINE 超過 {timeout.TotalSeconds:0} 秒仍未完成。");
+                throw new TimeoutException($"AutoHotkey 操作 LINE 超過 {timeout.TotalSeconds:0} 秒仍未完成。ChatName: {chatName ?? "目前聊天室"}");
             }
 
             await waitTask;
@@ -135,18 +158,18 @@ namespace SANJET.Core.Services
             if (process.ExitCode != 0)
             {
                 throw new InvalidOperationException(
-                    $"AutoHotkey 傳送 LINE 訊息失敗。ExitCode: {process.ExitCode}, Output: {standardOutput}, Error: {standardError}");
+                    $"AutoHotkey 傳送 LINE 訊息失敗。ExitCode: {process.ExitCode}, ChatName: {chatName ?? "目前聊天室"}, Output: {standardOutput}, Error: {standardError}");
             }
         }
 
-        private string BuildAutoHotkeyScript(string messageFilePath)
+        private string BuildAutoHotkeyScript(string chatFilePath, string messageFilePath)
         {
             return IsAutoHotkeyV1()
-                ? BuildAutoHotkeyV1Script(messageFilePath)
-                : BuildAutoHotkeyV2Script(messageFilePath);
+                ? BuildAutoHotkeyV1Script(chatFilePath, messageFilePath)
+                : BuildAutoHotkeyV2Script(chatFilePath, messageFilePath);
         }
 
-        private string BuildAutoHotkeyV2Script(string messageFilePath)
+        private string BuildAutoHotkeyV2Script(string chatFilePath, string messageFilePath)
         {
             var processName = GetLineProcessExecutableName();
             var delay = Math.Max(_options.SendDelayMilliseconds, 100);
@@ -161,10 +184,12 @@ namespace SANJET.Core.Services
 
                 lineExe := "{{EscapeAutoHotkeyV2String(_options.LineExecutablePath)}}"
                 processName := "{{EscapeAutoHotkeyV2String(processName)}}"
+                chatFile := "{{EscapeAutoHotkeyV2String(chatFilePath)}}"
                 messageFile := "{{EscapeAutoHotkeyV2String(messageFilePath)}}"
                 delay := {{delay}}
                 timeoutSeconds := {{timeout}}
 
+                targetChatName := Trim(FileRead(chatFile, "UTF-8"), "`r`n`t ")
                 message := FileRead(messageFile, "UTF-8")
 
                 if !ProcessExist(processName) {
@@ -184,11 +209,14 @@ namespace SANJET.Core.Services
                 if !WinWaitActive("ahk_id " lineWindow, , timeoutSeconds)
                     ExitApp 22
 
+                if (targetChatName != "" && !IsTargetChatActive(lineWindow, targetChatName))
+                    OpenTargetChat(lineWindow, targetChatName, delay)
+
                 FocusLineMessageInput(lineWindow, delay)
 
                 A_Clipboard := message
                 if !ClipWait(2)
-                    ExitApp 23
+                    ExitApp 24
 
                 Send "^v"
                 Sleep delay
@@ -196,6 +224,29 @@ namespace SANJET.Core.Services
                 Sleep delay * 2
                 WinMinimize "ahk_id " lineWindow
                 ExitApp 0
+
+                IsTargetChatActive(lineWindow, targetChatName) {
+                    windowTitle := WinGetTitle("ahk_id " lineWindow)
+                    return InStr(windowTitle, targetChatName) > 0
+                }
+
+                OpenTargetChat(lineWindow, targetChatName, delay) {
+                    WinActivate "ahk_id " lineWindow
+                    A_Clipboard := targetChatName
+                    if !ClipWait(2)
+                        ExitApp 23
+
+                    Send "^f"
+                    Sleep delay
+                    Send "^a"
+                    Sleep delay
+                    Send "^v"
+                    Sleep delay
+                    Send "{Enter}"
+                    Sleep delay * 3
+                    Send "{Esc}"
+                    Sleep delay
+                }
 
                 FocusLineMessageInput(lineWindow, delay) {
                     WinActivate "ahk_id " lineWindow
@@ -208,7 +259,7 @@ namespace SANJET.Core.Services
                 """;
         }
 
-        private string BuildAutoHotkeyV1Script(string messageFilePath)
+        private string BuildAutoHotkeyV1Script(string chatFilePath, string messageFilePath)
         {
             var processName = GetLineProcessExecutableName();
             var delay = Math.Max(_options.SendDelayMilliseconds, 100);
@@ -223,11 +274,14 @@ namespace SANJET.Core.Services
 
                 lineExe := "{{EscapeAutoHotkeyV1String(_options.LineExecutablePath)}}"
                 processName := "{{EscapeAutoHotkeyV1String(processName)}}"
+                chatFile := "{{EscapeAutoHotkeyV1String(chatFilePath)}}"
                 messageFile := "{{EscapeAutoHotkeyV1String(messageFilePath)}}"
                 delay := {{delay}}
                 timeoutSeconds := {{timeout}}
 
+                FileRead, targetChatName, *P65001 %chatFile%
                 FileRead, message, *P65001 %messageFile%
+                targetChatName := Trim(targetChatName, "`r`n`t ")
 
                 Process, Exist, %processName%
                 if (ErrorLevel = 0) {
@@ -249,12 +303,18 @@ namespace SANJET.Core.Services
                 if ErrorLevel
                     ExitApp, 22
 
+                if (targetChatName != "") {
+                    Gosub, IsTargetChatActive
+                    if (!isTargetChatActive)
+                        Gosub, OpenTargetChat
+                }
+
                 Gosub, FocusLineMessageInput
 
                 Clipboard := message
                 ClipWait, 2
                 if ErrorLevel
-                    ExitApp, 23
+                    ExitApp, 24
 
                 Send, ^v
                 Sleep, %delay%
@@ -263,6 +323,31 @@ namespace SANJET.Core.Services
                 Sleep, %sleepAfterSend%
                 WinMinimize, ahk_id %lineWindow%
                 ExitApp, 0
+
+                IsTargetChatActive:
+                    WinGetTitle, windowTitle, ahk_id %lineWindow%
+                    isTargetChatActive := InStr(windowTitle, targetChatName) > 0
+                Return
+
+                OpenTargetChat:
+                    WinActivate, ahk_id %lineWindow%
+                    Clipboard := targetChatName
+                    ClipWait, 2
+                    if ErrorLevel
+                        ExitApp, 23
+
+                    Send, ^f
+                    Sleep, %delay%
+                    Send, ^a
+                    Sleep, %delay%
+                    Send, ^v
+                    Sleep, %delay%
+                    Send, {Enter}
+                    sleepAfterOpen := delay * 3
+                    Sleep, %sleepAfterOpen%
+                    Send, {Esc}
+                    Sleep, %delay%
+                Return
 
                 FocusLineMessageInput:
                     WinActivate, ahk_id %lineWindow%
@@ -274,6 +359,14 @@ namespace SANJET.Core.Services
                 Return
                 """;
         }
+
+
+        private string[] GetTargetChatNames() =>
+            _options.TargetChatNames
+                .Where(chatName => !string.IsNullOrWhiteSpace(chatName))
+                .Select(chatName => chatName.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
 
         private bool IsAutoHotkeyV1() =>
             string.Equals(_options.AutoHotkeyVersion, "v1", StringComparison.OrdinalIgnoreCase) ||
