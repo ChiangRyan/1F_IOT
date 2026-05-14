@@ -122,7 +122,13 @@ namespace SANJET
                                 : lineMessagingOptions.CooldownMinutes,
                             NotifyRecovery = !bool.TryParse(faultNotificationSection["NotifyRecovery"], out var faultNotifyRecovery)
                                 ? lineMessagingOptions.NotifyRecovery
-                                : faultNotifyRecovery
+                                : faultNotifyRecovery,
+                            BatchWindowSeconds = int.TryParse(faultNotificationSection["BatchWindowSeconds"], out var faultBatchWindowSeconds)
+                                ? faultBatchWindowSeconds
+                                : 5,
+                            MaxBatchSize = int.TryParse(faultNotificationSection["MaxBatchSize"], out var faultMaxBatchSize)
+                                ? faultMaxBatchSize
+                                : 50
                         };
                         services.AddSingleton(faultNotificationOptions);
 
