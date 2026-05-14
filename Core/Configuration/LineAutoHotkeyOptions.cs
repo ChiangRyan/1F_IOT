@@ -8,6 +8,13 @@ namespace SANJET.Core.Configuration
         public string LineExecutablePath { get; set; } = string.Empty;
         public string LineProcessName { get; set; } = "LINE";
         public string[] TargetChatNames { get; set; } = [];
+        public bool PinLineWindow { get; set; } = true;
+        public bool KeepLineWindowTopMost { get; set; } = true;
+        public int LineWindowLeft { get; set; } = 0;
+        public int LineWindowTop { get; set; } = 0;
+        public int LineWindowWidth { get; set; } = 1000;
+        public int LineWindowHeight { get; set; } = 800;
+        public bool MinimizeLineWindowAfterSend { get; set; }
         public int OperationTimeoutSeconds { get; set; } = 15;
         public int SendDelayMilliseconds { get; set; } = 300;
         public bool RestoreClipboard { get; set; } = true;

@@ -100,6 +100,13 @@ namespace SANJET
                                 .Select(child => child.Value ?? string.Empty)
                                 .Where(value => !string.IsNullOrWhiteSpace(value))
                                 .ToArray(),
+                            PinLineWindow = !bool.TryParse(lineAutoHotkeySection["PinLineWindow"], out var pinLineWindow) || pinLineWindow,
+                            KeepLineWindowTopMost = !bool.TryParse(lineAutoHotkeySection["KeepLineWindowTopMost"], out var keepLineWindowTopMost) || keepLineWindowTopMost,
+                            LineWindowLeft = int.TryParse(lineAutoHotkeySection["LineWindowLeft"], out var lineWindowLeft) ? lineWindowLeft : 0,
+                            LineWindowTop = int.TryParse(lineAutoHotkeySection["LineWindowTop"], out var lineWindowTop) ? lineWindowTop : 0,
+                            LineWindowWidth = int.TryParse(lineAutoHotkeySection["LineWindowWidth"], out var lineWindowWidth) ? lineWindowWidth : 1000,
+                            LineWindowHeight = int.TryParse(lineAutoHotkeySection["LineWindowHeight"], out var lineWindowHeight) ? lineWindowHeight : 800,
+                            MinimizeLineWindowAfterSend = bool.TryParse(lineAutoHotkeySection["MinimizeLineWindowAfterSend"], out var minimizeLineWindowAfterSend) && minimizeLineWindowAfterSend,
                             OperationTimeoutSeconds = int.TryParse(lineAutoHotkeySection["OperationTimeoutSeconds"], out var operationTimeoutSeconds) ? operationTimeoutSeconds : 15,
                             SendDelayMilliseconds = int.TryParse(lineAutoHotkeySection["SendDelayMilliseconds"], out var sendDelayMilliseconds) ? sendDelayMilliseconds : 300,
                             RestoreClipboard = !bool.TryParse(lineAutoHotkeySection["RestoreClipboard"], out var restoreClipboard) || restoreClipboard
