@@ -175,149 +175,166 @@ namespace SANJET.Core.Services
         private string BuildAutoHotkeyV2Script(string chatFilePath, string messageFilePath)
         {
             var processName = GetLineProcessExecutableName();
-            var delay = Math.Max(_options.SendDelayMilliseconds, 100);
-            var timeout = Math.Max(_options.OperationTimeoutSeconds, 5);
+            var delay = Math.Max(_options.SendDelayMilliseconds, 300);
+            var timeout = Math.Max(_options.OperationTimeoutSeconds, 10);
             var minimizeAfterSend = _options.MinimizeLineWindowAfterSend ? 1 : 0;
 
+            var pinLineWindow = _options.PinLineWindow ? 1 : 0;
+            var keepLineWindowTopMost = _options.KeepLineWindowTopMost ? 1 : 0;
+            var lineWindowLeft = _options.LineWindowLeft;
+            var lineWindowTop = _options.LineWindowTop;
+            var lineWindowWidth = _options.LineWindowWidth;
+            var lineWindowHeight = _options.LineWindowHeight;
+
             return $$"""
-                #Requires AutoHotkey v2.0
-                #SingleInstance Force
-                SetTitleMatchMode 2
-                SetKeyDelay {{delay}}, {{delay}}
-                CoordMode "Mouse", "Screen"
+            #Requires AutoHotkey v2.0
+            #SingleInstance Force
+            SetTitleMatchMode 2
+            SetKeyDelay {{delay}}, {{delay}}
+            CoordMode "Mouse", "Screen"
 
-                lineExe := "{{EscapeAutoHotkeyV2String(_options.LineExecutablePath)}}"
-                processName := "{{EscapeAutoHotkeyV2String(processName)}}"
-                chatFile := "{{EscapeAutoHotkeyV2String(chatFilePath)}}"
-                messageFile := "{{EscapeAutoHotkeyV2String(messageFilePath)}}"
-                delay := {{delay}}
-                timeoutSeconds := {{timeout}}
-                minimizeAfterSend := {{minimizeAfterSend}}
+            lineExe := "{{EscapeAutoHotkeyV2String(_options.LineExecutablePath)}}"
+            processName := "{{EscapeAutoHotkeyV2String(processName)}}"
+            chatFile := "{{EscapeAutoHotkeyV2String(chatFilePath)}}"
+            messageFile := "{{EscapeAutoHotkeyV2String(messageFilePath)}}"
 
-                targetChatName := Trim(FileRead(chatFile, "UTF-8"), "`r`n`t ")
-                message := FileRead(messageFile, "UTF-8")
+            delay := {{delay}}
+            timeoutSeconds := {{timeout}}
+            minimizeAfterSend := {{minimizeAfterSend}}
 
-                if !ProcessExist(processName) {
-                    if (lineExe = "")
-                        ExitApp 20
-                    Run lineExe
-                }
+            pinLineWindow := {{pinLineWindow}}
+            keepLineWindowTopMost := {{keepLineWindowTopMost}}
+            lineWindowLeft := {{lineWindowLeft}}
+            lineWindowTop := {{lineWindowTop}}
+            lineWindowWidth := {{lineWindowWidth}}
+            lineWindowHeight := {{lineWindowHeight}}
 
-                if !WinWait("ahk_exe " processName, , timeoutSeconds)
-                    ExitApp 21
+            targetChatName := Trim(FileRead(chatFile, "UTF-8"), "`r`n`t ")
+            message := FileRead(messageFile, "UTF-8")
 
-                lineWindow := WinExist("ahk_exe " processName)
-                if !lineWindow
-                    ExitApp 21
+            if (Trim(targetChatName) = "") {
+                MsgBox "TargetChatNames 是空的，已取消，避免貼到目前聊天室。", "LINE 發送取消", "Icon!"
+                ExitApp 31
+            }
+
+            if (Trim(message) = "") {
+                MsgBox "訊息內容是空的，已取消。", "LINE 發送取消", "Icon!"
+                ExitApp 25
+            }
+
+            if !ProcessExist(processName) {
+                if (lineExe = "")
+                    ExitApp 20
+
+                Run lineExe
+                Sleep delay * 10
+            }
+
+            if !WinWait("ahk_exe " processName, , timeoutSeconds)
+                ExitApp 21
+
+            lineWindow := WinExist("ahk_exe " processName)
+
+            if !lineWindow
+                ExitApp 21
+
+            WinActivate "ahk_id " lineWindow
+
+            if !WinWaitActive("ahk_id " lineWindow, , timeoutSeconds)
+                ExitApp 22
+
+            Sleep delay
+
+            ; ==================================================
+            ; 依 appsettings.json 固定 LINE 視窗位置與大小
+            ; ==================================================
+            if (pinLineWindow) {
+                WinMove lineWindowLeft, lineWindowTop, lineWindowWidth, lineWindowHeight, "ahk_id " lineWindow
+                Sleep delay
 
                 WinActivate "ahk_id " lineWindow
-                if !WinWaitActive("ahk_id " lineWindow, , timeoutSeconds)
-                    ExitApp 22
+                Sleep delay
+            }
 
-                ;if (targetChatName != "" && !IsTargetChatActive(lineWindow, targetChatName))
-                ;    OpenTargetChat(lineWindow, targetChatName, delay)
+            if (keepLineWindowTopMost) {
+                WinSetAlwaysOnTop 1, "ahk_id " lineWindow
+                Sleep delay
+            }
 
-                if (targetChatName != "") {
-                    ToolTip "準備搜尋聊天室：" targetChatName
-                    Sleep 1000
-                    ToolTip
-                    OpenTargetChat(lineWindow, targetChatName, delay)
-                } else {
-                    MsgBox "TargetChatNames 是空的，已取消，避免貼到目前聊天室。", "LINE 發送取消", "Icon!"
-                    ExitApp 31
+            ; ==================================================
+            ; 搜尋並切換聊天室
+            ; ==================================================
+            OpenTargetChat(lineWindow, targetChatName, delay)
+
+            ; ==================================================
+            ; 點擊輸入框
+            ; ==================================================
+            FocusLineMessageInput(lineWindow, delay)
+
+            ; ==================================================
+            ; 貼上訊息
+            ; ==================================================
+            A_Clipboard := ""
+            Sleep 50
+            A_Clipboard := message
+
+            if !ClipWait(2)
+                ExitApp 24
+
+            Send "^v"
+            Sleep delay
+
+            ; 測試階段先不要自動送出
+            ; Send "{Enter}"
+
+            Sleep delay * 2
+
+            if (minimizeAfterSend)
+                WinMinimize "ahk_id " lineWindow
+
+            ExitApp 0
+
+
+            OpenTargetChat(lineWindow, targetChatName, delay) {
+                WinActivate "ahk_id " lineWindow
+                Sleep delay
+
+                ; LINE 已固定在 0,0,1000,800
+                ; 搜尋框座標：Window 138,101
+                Click 138, 101
+                Sleep delay
+
+                Send "^a"
+                Sleep delay
+                Send "{Backspace}"
+                Sleep delay
+
+                A_Clipboard := ""
+                Sleep 50
+                A_Clipboard := targetChatName
+
+                if !ClipWait(1) {
+                    MsgBox "聊天室名稱寫入剪貼簿失敗。", "LINE 搜尋失敗", "Icon!"
+                    ExitApp 23
                 }
-
-                FocusLineMessageInput(lineWindow, delay)
-
-                FocusLineMessageInput(lineWindow, delay)
-
-                A_Clipboard := message
-                if !ClipWait(2)
-                    ExitApp 24
 
                 Send "^v"
-                Sleep delay
-                Send "{Enter}"
                 Sleep delay * 2
-                if (minimizeAfterSend)
-                    WinMinimize "ahk_id " lineWindow
-                ExitApp 0
 
-                IsTargetChatActive(lineWindow, targetChatName) {
-                    windowTitle := WinGetTitle("ahk_id " lineWindow)
-                    return InStr(windowTitle, targetChatName) > 0
-                }
+                ; 搜尋結果第一筆座標：Window 250,210
+                Click 250, 210
+                Sleep delay * 2
+            }
 
-                OpenTargetChat(lineWindow, targetChatName, delay) {
-                    WinActivate "ahk_id " lineWindow
-                    Sleep delay
+            FocusLineMessageInput(lineWindow, delay) {
+                WinActivate "ahk_id " lineWindow
+                Sleep delay
 
-                    WinGetPos &windowX, &windowY, &windowWidth, &windowHeight, "ahk_id " lineWindow
-
-                    ; 搜尋框座標：你最新提供的 Window Spy 座標
-                    ; Window: 138, 101
-                    searchX := windowX + 138
-                    searchY := windowY + 101
-
-                    ToolTip "正在點擊搜尋框：" targetChatName
-                    Sleep 500
-
-                    ; 點擊 LINE 左上搜尋框
-                    Click searchX, searchY
-                    Sleep delay
-
-                    ; 清空搜尋框
-                    Send "^a"
-                    Sleep delay
-                    Send "{Backspace}"
-                    Sleep delay
-
-                    ; 貼上聊天室名稱
-                    A_Clipboard := ""
-                    Sleep 150
-                    A_Clipboard := targetChatName
-
-                    if !ClipWait(2) {
-                        ToolTip
-                        MsgBox "聊天室名稱寫入剪貼簿失敗。", "LINE 搜尋失敗", "Icon!"
-                        ExitApp 23
-                    }
-
-                    Send "^v"
-                    Sleep delay * 2
-
-                    ; 目標聊天室：你最新提供的 Window Spy 座標
-                    ; Window: 250, 210
-                    searchX := windowX + 250
-                    searchY := windowY + 210
-
-                    ToolTip "正在點擊搜尋目標：" targetChatName
-                    Sleep 500
-                
-                    ; 點擊 目標聊天室
-                    Click searchX, searchY
-                    Sleep delay
-
-                    ToolTip "已貼上聊天室名稱：" targetChatName
-                    Sleep 800
-                    ToolTip
-                }
-
-                FocusLineMessageInput(lineWindow, delay) {
-                    WinActivate "ahk_id " lineWindow
-                    Sleep delay
-
-                    WinGetPos &windowX, &windowY, &windowWidth, &windowHeight, "ahk_id " lineWindow
-
-                    ; 你提供的 LINE 輸入框 Window Spy 座標：
-                    ; Window: 495, 675
-                    inputX := windowX + 495
-                    inputY := windowY + 675
-
-                    Click inputX, inputY
-                    Sleep delay
-                }
-                """;
+                ; LINE 輸入框座標：Window 495,675
+                Click 495, 675
+                Sleep delay
+            }
+            """;                                
         }
 
         private string BuildAutoHotkeyV1Script(string chatFilePath, string messageFilePath)
