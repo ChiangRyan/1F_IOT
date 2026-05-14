@@ -305,11 +305,11 @@ namespace SANJET.Core.Services
         {
             var prefix = includeIndex ? $"{index}. " : string.Empty;
             return $"{prefix}設備：{notification.DeviceName}\n" +
-                   $"   區域：{notification.Area}\n" +
-                   $"   ESP32：{notification.ControllingEsp32MqttId}\n" +
-                   $"   Slave ID：{notification.SlaveId}\n" +
-                   $"   狀態：{notification.OldStatus} → {notification.NewStatus}\n" +
-                   $"   時間：{notification.OccurredAt:yyyy-MM-dd HH:mm:ss}";
+                   $"　　區域：{notification.Area}\n" +
+                   $"　　ESP32：{notification.ControllingEsp32MqttId}\n" +
+                   $"　　Slave ID：{notification.SlaveId}\n" +
+                   $"　　狀態：{notification.OldStatus} → {notification.NewStatus}\n" +
+                   $"　　時間：{notification.OccurredAt:yyyy-MM-dd HH:mm:ss}";
         }
 
         private static string BuildRecoveryMessage(Device device, string oldStatus, string newStatus, DateTime occurredAt)
@@ -360,11 +360,11 @@ namespace SANJET.Core.Services
         {
             var prefix = includeIndex ? $"{index}. " : string.Empty;
             return $"{prefix}設備：{notification.DeviceName}\n" +
-                   $"   區域：{notification.Area}\n" +
-                   $"   ESP32：{notification.ControllingEsp32MqttId}\n" +
-                   $"   Slave ID：{notification.SlaveId}\n" +
-                   $"   狀態：{notification.OldStatus} → {notification.NewStatus}\n" +
-                   $"   時間：{notification.OccurredAt:yyyy-MM-dd HH:mm:ss}";
+                   $"　　區域：{notification.Area}\n" +
+                   $"　　ESP32：{notification.ControllingEsp32MqttId}\n" +
+                   $"　　Slave ID：{notification.SlaveId}\n" +
+                   $"　　狀態：{notification.OldStatus} → {notification.NewStatus}\n" +
+                   $"　　時間：{notification.OccurredAt:yyyy-MM-dd HH:mm:ss}";
         }
 
         private sealed record PendingFaultNotification(

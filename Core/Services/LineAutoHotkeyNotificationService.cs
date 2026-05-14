@@ -285,7 +285,7 @@ namespace SANJET.Core.Services
             Sleep delay
 
             ; 測試階段先不要自動送出
-            ; Send "{Enter}"
+            Send "{Enter}"
 
             Sleep delay * 2
 
