@@ -77,11 +77,12 @@ $env:LineMessaging__TargetIds__0="你的 userId 或 groupId"
 此模式不使用 LINE 官方 Messaging API，而是啟動 AutoHotkey 腳本操作目前登入 Windows 桌面工作階段中的 LINE 桌面版 App。它會：
 
 1. 確認 LINE 程序是否存在，不存在時依 `LineExecutablePath` 啟動。
-2. 將 LINE 主視窗切到前景。
-3. 若 `TargetChatNames` 有設定，會先檢查目前 LINE 視窗標題是否已包含目標聊天室名稱；不符合時會先搜尋並開啟目標聊天室。
-4. 將訊息輸入框聚焦後，透過剪貼簿把故障訊息貼上。
-5. 送出訊息。
-6. 傳送完成後將 LINE 視窗最小化，避免下次操作時焦點或視窗狀態異常。
+2. 若 `PinLineWindow=true`，C# 會先透過 Win32 API 將 LINE 主視窗移到指定座標、調整大小，並依設定設為最上層視窗。
+3. AutoHotkey 將 LINE 主視窗切到前景。
+4. 若 `TargetChatNames` 有設定，會先檢查目前 LINE 視窗標題是否已包含目標聊天室名稱；不符合時會先搜尋並開啟目標聊天室。
+5. 將訊息輸入框聚焦後，透過剪貼簿把故障訊息貼上。
+6. 送出訊息。
+7. 若 `MinimizeLineWindowAfterSend=true`，傳送完成後才會將 LINE 視窗最小化；預設會保留固定在指定位置，方便下次告警沿用。
 
 ### 3.1 `appsettings.json` 範例
 
@@ -101,6 +102,13 @@ $env:LineMessaging__TargetIds__0="你的 userId 或 groupId"
     "LineExecutablePath": "C:\\Users\\你的帳號\\AppData\\Local\\LINE\\bin\\LineLauncher.exe",
     "LineProcessName": "LINE",
     "TargetChatNames": ["設備故障通知群組"],
+    "PinLineWindow": true,
+    "KeepLineWindowTopMost": true,
+    "LineWindowLeft": 0,
+    "LineWindowTop": 0,
+    "LineWindowWidth": 1000,
+    "LineWindowHeight": 800,
+    "MinimizeLineWindowAfterSend": false,
     "OperationTimeoutSeconds": 15,
     "SendDelayMilliseconds": 300,
     "RestoreClipboard": true
@@ -116,7 +124,12 @@ $env:LineMessaging__TargetIds__0="你的 userId 或 groupId"
 | `LineExecutablePath` | LINE 未啟動時要執行的啟動程式路徑。 |
 | `LineProcessName` | LINE 程序名稱，通常維持 `LINE`。 |
 | `TargetChatNames` | 要發送故障通知的聊天室名稱，可設定一個或多個。若目前 LINE 視窗標題不含目標聊天室名稱，AutoHotkey 會先用 LINE 搜尋開啟該聊天室再貼上訊息；若留空則維持舊行為，直接送到目前聊天室。 |
-| `OperationTimeoutSeconds` | 等待 LINE 啟動或操作的逾時秒數。 |
+| `PinLineWindow` | 是否在呼叫 AutoHotkey 前，先用 C# Win32 API 固定 LINE 視窗位置與大小。 |
+| `KeepLineWindowTopMost` | 固定 LINE 視窗時是否設為最上層視窗；若設為 `false`，會解除 TopMost 但仍依座標移動與調整大小。 |
+| `LineWindowLeft` / `LineWindowTop` | LINE 視窗左上角螢幕座標。多螢幕環境可使用負值或超過主螢幕寬度的座標。 |
+| `LineWindowWidth` / `LineWindowHeight` | LINE 視窗固定後的寬度與高度；程式會保護最小值 320x240。 |
+| `MinimizeLineWindowAfterSend` | 傳送完成後是否最小化 LINE；若要讓視窗保持固定在最上方，請維持 `false`。 |
+| `OperationTimeoutSeconds` | 等待 LINE 啟動、視窗出現或 AutoHotkey 操作的逾時秒數。 |
 | `SendDelayMilliseconds` | 每個 UI 操作之間的等待時間；現場電腦較慢時可調大。 |
 | `RestoreClipboard` | 發送後是否嘗試還原原本的文字剪貼簿內容。 |
 
@@ -128,7 +141,8 @@ $env:LineMessaging__TargetIds__0="你的 userId 或 groupId"
 - 請確認 AutoHotkey 已安裝，且 `AutoHotkeyExecutablePath` / `AutoHotkeyVersion` 與實際版本一致。
 - 建議設定 `TargetChatNames`；若留空，AutoHotkey 無法判斷正確聊天室，會直接沿用目前 LINE 聊天室。
 - `TargetChatNames` 必須與 LINE 搜尋可找到的聊天室、群組或好友名稱一致；發送期間請勿人工操作，以免搜尋結果或焦點被干擾。
-- 訊息送出後會自動最小化 LINE 視窗，避免下一次通知操作受到前一次視窗狀態影響。
+- 若啟用 `PinLineWindow`，程式會在每次發送前重新固定 LINE 視窗，降低視窗被移動或遮蔽造成的失敗率。
+- 若 `MinimizeLineWindowAfterSend=false`，LINE 會維持在指定位置並保持最上層；若現場操作員需要保留螢幕空間，可改為 `true`。
 - 桌面版自動操作不像 Messaging API 有 HTTP 回應碼，因此成功判斷主要依流程是否發生例外與程式日誌。
 
 ## 4. 推播觸發規則

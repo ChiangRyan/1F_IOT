@@ -1,7 +1,9 @@
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -90,6 +92,7 @@ namespace SANJET.Core.Services
                 await File.WriteAllTextAsync(messageFilePath, message, new UTF8Encoding(false), cancellationToken);
                 await File.WriteAllTextAsync(scriptFilePath, BuildAutoHotkeyScript(chatFilePath, messageFilePath), new UTF8Encoding(false), cancellationToken);
 
+                await EnsureLineWindowPinnedAsync(cancellationToken);
                 await RunAutoHotkeyScriptAsync(scriptFilePath, chatName, cancellationToken);
                 if (string.IsNullOrWhiteSpace(chatName))
                 {
@@ -174,6 +177,7 @@ namespace SANJET.Core.Services
             var processName = GetLineProcessExecutableName();
             var delay = Math.Max(_options.SendDelayMilliseconds, 100);
             var timeout = Math.Max(_options.OperationTimeoutSeconds, 5);
+            var minimizeAfterSend = _options.MinimizeLineWindowAfterSend ? 1 : 0;
 
             return $$"""
                 #Requires AutoHotkey v2.0
@@ -188,6 +192,7 @@ namespace SANJET.Core.Services
                 messageFile := "{{EscapeAutoHotkeyV2String(messageFilePath)}}"
                 delay := {{delay}}
                 timeoutSeconds := {{timeout}}
+                minimizeAfterSend := {{minimizeAfterSend}}
 
                 targetChatName := Trim(FileRead(chatFile, "UTF-8"), "`r`n`t ")
                 message := FileRead(messageFile, "UTF-8")
@@ -222,7 +227,8 @@ namespace SANJET.Core.Services
                 Sleep delay
                 Send "{Enter}"
                 Sleep delay * 2
-                WinMinimize "ahk_id " lineWindow
+                if (minimizeAfterSend)
+                    WinMinimize "ahk_id " lineWindow
                 ExitApp 0
 
                 IsTargetChatActive(lineWindow, targetChatName) {
@@ -264,6 +270,7 @@ namespace SANJET.Core.Services
             var processName = GetLineProcessExecutableName();
             var delay = Math.Max(_options.SendDelayMilliseconds, 100);
             var timeout = Math.Max(_options.OperationTimeoutSeconds, 5);
+            var minimizeAfterSend = _options.MinimizeLineWindowAfterSend ? 1 : 0;
 
             return $$"""
                 #NoEnv
@@ -278,6 +285,7 @@ namespace SANJET.Core.Services
                 messageFile := "{{EscapeAutoHotkeyV1String(messageFilePath)}}"
                 delay := {{delay}}
                 timeoutSeconds := {{timeout}}
+                minimizeAfterSend := {{minimizeAfterSend}}
 
                 FileRead, targetChatName, *P65001 %chatFile%
                 FileRead, message, *P65001 %messageFile%
@@ -321,7 +329,8 @@ namespace SANJET.Core.Services
                 Send, {Enter}
                 sleepAfterSend := delay * 2
                 Sleep, %sleepAfterSend%
-                WinMinimize, ahk_id %lineWindow%
+                if (minimizeAfterSend)
+                    WinMinimize, ahk_id %lineWindow%
                 ExitApp, 0
 
                 IsTargetChatActive:
@@ -361,6 +370,164 @@ namespace SANJET.Core.Services
         }
 
 
+        private async Task EnsureLineWindowPinnedAsync(CancellationToken cancellationToken)
+        {
+            if (!_options.PinLineWindow)
+            {
+                return;
+            }
+
+            var windowHandle = await WaitForLineWindowAsync(cancellationToken);
+            if (windowHandle == IntPtr.Zero)
+            {
+                throw new InvalidOperationException($"找不到 LINE 視窗，無法固定視窗位置。ProcessName: {GetLineProcessExecutableName()}");
+            }
+
+            ShowWindow(windowHandle, ShowWindowCommand.Restore);
+
+            var width = Math.Max(_options.LineWindowWidth, 320);
+            var height = Math.Max(_options.LineWindowHeight, 240);
+            var insertAfter = _options.KeepLineWindowTopMost ? HwndTopMost : HwndNoTopMost;
+            const SetWindowPosFlags flags = SetWindowPosFlags.ShowWindow;
+
+            if (!SetWindowPos(windowHandle, insertAfter, _options.LineWindowLeft, _options.LineWindowTop, width, height, flags))
+            {
+                throw new Win32Exception(Marshal.GetLastWin32Error(), "固定 LINE 視窗位置失敗。");
+            }
+
+            _logger.LogDebug(
+                "LINE 視窗已透過 Win32 API 固定。Handle: {WindowHandle}, TopMost: {TopMost}, X: {X}, Y: {Y}, Width: {Width}, Height: {Height}",
+                windowHandle,
+                _options.KeepLineWindowTopMost,
+                _options.LineWindowLeft,
+                _options.LineWindowTop,
+                width,
+                height);
+        }
+
+        private async Task<IntPtr> WaitForLineWindowAsync(CancellationToken cancellationToken)
+        {
+            var timeout = TimeSpan.FromSeconds(Math.Max(_options.OperationTimeoutSeconds, 5));
+            var deadline = DateTimeOffset.UtcNow.Add(timeout);
+            var processName = GetLineProcessNameWithoutExtension();
+
+            EnsureLineProcessStarted(processName);
+
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var lineWindow = FindLineMainWindow(processName);
+                if (lineWindow != IntPtr.Zero)
+                {
+                    return lineWindow;
+                }
+
+                await Task.Delay(250, cancellationToken);
+            }
+
+            return IntPtr.Zero;
+        }
+
+        private void EnsureLineProcessStarted(string processName)
+        {
+            if (Process.GetProcessesByName(processName).Length > 0)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_options.LineExecutablePath))
+            {
+                return;
+            }
+
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = _options.LineExecutablePath,
+                    UseShellExecute = true
+                });
+
+                _logger.LogInformation("LINE 未執行，已嘗試啟動 LINE。ExecutablePath: {LineExecutablePath}", _options.LineExecutablePath);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"無法啟動 LINE。請確認 LineExecutablePath 是否正確：{_options.LineExecutablePath}", ex);
+            }
+        }
+
+        private static IntPtr FindLineMainWindow(string processName)
+        {
+            var processIds = Process.GetProcessesByName(processName)
+                .Select(process =>
+                {
+                    try
+                    {
+                        process.Refresh();
+                        if (process.MainWindowHandle != IntPtr.Zero && IsWindowVisible(process.MainWindowHandle))
+                        {
+                            return process.MainWindowHandle;
+                        }
+
+                        return IntPtr.Zero;
+                    }
+                    finally
+                    {
+                        process.Dispose();
+                    }
+                })
+                .Where(handle => handle != IntPtr.Zero)
+                .ToArray();
+
+            if (processIds.Length > 0)
+            {
+                return processIds[0];
+            }
+
+            var candidateProcessIds = Process.GetProcessesByName(processName)
+                .Select(process =>
+                {
+                    try
+                    {
+                        return process.Id;
+                    }
+                    finally
+                    {
+                        process.Dispose();
+                    }
+                })
+                .ToHashSet();
+
+            if (candidateProcessIds.Count == 0)
+            {
+                return IntPtr.Zero;
+            }
+
+            var result = IntPtr.Zero;
+            EnumWindows((windowHandle, _) =>
+            {
+                GetWindowThreadProcessId(windowHandle, out var windowProcessId);
+                if (!candidateProcessIds.Contains((int)windowProcessId) || !IsWindowVisible(windowHandle))
+                {
+                    return true;
+                }
+
+                var titleLength = GetWindowTextLength(windowHandle);
+                if (titleLength <= 0)
+                {
+                    return true;
+                }
+
+                result = windowHandle;
+                return false;
+            }, IntPtr.Zero);
+
+            return result;
+        }
+
+
+
         private string[] GetTargetChatNames() =>
             _options.TargetChatNames
                 .Where(chatName => !string.IsNullOrWhiteSpace(chatName))
@@ -381,6 +548,14 @@ namespace SANJET.Core.Services
             return processName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
                 ? processName
                 : $"{processName}.exe";
+        }
+
+        private string GetLineProcessNameWithoutExtension()
+        {
+            var executableName = GetLineProcessExecutableName();
+            return executableName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                ? executableName[..^4]
+                : executableName;
         }
 
         private static async Task<(bool HadText, string? Text)> GetClipboardTextAsync(CancellationToken cancellationToken)
@@ -428,6 +603,48 @@ namespace SANJET.Core.Services
 
         private static string EscapeAutoHotkeyV1String(string value) =>
             value.Replace("`", "``").Replace("\"", "\"\"").Replace("\r", "`r").Replace("\n", "`n");
+
+
+        private static readonly IntPtr HwndTopMost = new(-1);
+        private static readonly IntPtr HwndNoTopMost = new(-2);
+
+        private delegate bool EnumWindowsProc(IntPtr windowHandle, IntPtr lParam);
+
+        [Flags]
+        private enum SetWindowPosFlags : uint
+        {
+            ShowWindow = 0x0040
+        }
+
+        private enum ShowWindowCommand
+        {
+            Restore = 9
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SetWindowPos(
+            IntPtr hWnd,
+            IntPtr hWndInsertAfter,
+            int x,
+            int y,
+            int cx,
+            int cy,
+            SetWindowPosFlags uFlags);
+
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, ShowWindowCommand nCmdShow);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern int GetWindowTextLength(IntPtr hWnd);
 
         private static void TryKillProcess(Process process)
         {
