@@ -16,7 +16,9 @@
   "FaultNotification": {
     "Enabled": true,
     "CooldownMinutes": 30,
-    "NotifyRecovery": true
+    "NotifyRecovery": true,
+    "BatchWindowSeconds": 5,
+    "MaxBatchSize": 50
   }
 }
 ```
@@ -26,6 +28,8 @@
 | `Enabled` | 是否啟用故障通知流程。 |
 | `CooldownMinutes` | 同一設備重複故障通知的冷卻時間。 |
 | `NotifyRecovery` | 設備從故障恢復時是否發送恢復通知。 |
+| `BatchWindowSeconds` | 故障發生後先等待幾秒再彙整推播；同一時間多台故障會合併成一則訊息，避免 AutoHotkey 重複開啟與貼送造成延遲。設為 `0` 可回復每台設備立即單獨推播。 |
+| `MaxBatchSize` | 批次等待期間累積到此筆數時立即送出，避免大量故障時等待過久。 |
 
 ## 2. LINE Messaging API 設定
 
@@ -88,6 +92,13 @@ $env:LineMessaging__TargetIds__0="你的 userId 或 groupId"
 
 ```json
 {
+  "FaultNotification": {
+    "Enabled": true,
+    "CooldownMinutes": 30,
+    "NotifyRecovery": true,
+    "BatchWindowSeconds": 5,
+    "MaxBatchSize": 50
+  },
   "LineMessaging": {
     "Enabled": false,
     "ChannelAccessToken": "",
