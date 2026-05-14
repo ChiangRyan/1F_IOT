@@ -256,10 +256,16 @@ namespace SANJET.Core.Services
 
                 FocusLineMessageInput(lineWindow, delay) {
                     WinActivate "ahk_id " lineWindow
+                    Sleep delay
+
                     WinGetPos &windowX, &windowY, &windowWidth, &windowHeight, "ahk_id " lineWindow
-                    clickX := windowX + Round(windowWidth * 0.55)
-                    clickY := windowY + windowHeight - 85
-                    Click clickX, clickY
+
+                    ; 你提供的 LINE 輸入框 Window Spy 座標：
+                    ; Window: 495, 675
+                    inputX := windowX + 495
+                    inputY := windowY + 675
+
+                    Click inputX, inputY
                     Sleep delay
                 }
                 """;
