@@ -214,8 +214,20 @@ namespace SANJET.Core.Services
                 if !WinWaitActive("ahk_id " lineWindow, , timeoutSeconds)
                     ExitApp 22
 
-                if (targetChatName != "" && !IsTargetChatActive(lineWindow, targetChatName))
+                ;if (targetChatName != "" && !IsTargetChatActive(lineWindow, targetChatName))
+                ;    OpenTargetChat(lineWindow, targetChatName, delay)
+
+                if (targetChatName != "") {
+                    ToolTip "準備搜尋聊天室：" targetChatName
+                    Sleep 1000
+                    ToolTip
                     OpenTargetChat(lineWindow, targetChatName, delay)
+                } else {
+                    MsgBox "TargetChatNames 是空的，已取消，避免貼到目前聊天室。", "LINE 發送取消", "Icon!"
+                    ExitApp 31
+                }
+
+                FocusLineMessageInput(lineWindow, delay)
 
                 FocusLineMessageInput(lineWindow, delay)
 
@@ -238,20 +250,57 @@ namespace SANJET.Core.Services
 
                 OpenTargetChat(lineWindow, targetChatName, delay) {
                     WinActivate "ahk_id " lineWindow
-                    A_Clipboard := targetChatName
-                    if !ClipWait(2)
-                        ExitApp 23
-
-                    Send "^f"
                     Sleep delay
+
+                    WinGetPos &windowX, &windowY, &windowWidth, &windowHeight, "ahk_id " lineWindow
+
+                    ; 搜尋框座標：你最新提供的 Window Spy 座標
+                    ; Window: 138, 101
+                    searchX := windowX + 138
+                    searchY := windowY + 101
+
+                    ToolTip "正在點擊搜尋框：" targetChatName
+                    Sleep 500
+
+                    ; 點擊 LINE 左上搜尋框
+                    Click searchX, searchY
+                    Sleep delay
+
+                    ; 清空搜尋框
                     Send "^a"
                     Sleep delay
+                    Send "{Backspace}"
+                    Sleep delay
+
+                    ; 貼上聊天室名稱
+                    A_Clipboard := ""
+                    Sleep 150
+                    A_Clipboard := targetChatName
+
+                    if !ClipWait(2) {
+                        ToolTip
+                        MsgBox "聊天室名稱寫入剪貼簿失敗。", "LINE 搜尋失敗", "Icon!"
+                        ExitApp 23
+                    }
+
                     Send "^v"
+                    Sleep delay * 2
+
+                    ; 目標聊天室：你最新提供的 Window Spy 座標
+                    ; Window: 250, 210
+                    searchX := windowX + 250
+                    searchY := windowY + 210
+
+                    ToolTip "正在點擊搜尋目標：" targetChatName
+                    Sleep 500
+                
+                    ; 點擊 目標聊天室
+                    Click searchX, searchY
                     Sleep delay
-                    Send "{Enter}"
-                    Sleep delay * 3
-                    Send "{Esc}"
-                    Sleep delay
+
+                    ToolTip "已貼上聊天室名稱：" targetChatName
+                    Sleep 800
+                    ToolTip
                 }
 
                 FocusLineMessageInput(lineWindow, delay) {
