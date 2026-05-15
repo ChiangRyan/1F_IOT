@@ -279,6 +279,28 @@ namespace SANJET.Core.ViewModels
                                                 deviceInDb.Id, deviceInDb.Name, deviceInDb.Status, deviceInDb.RunCount);
                                 bool dbChanged = false;
 
+                                if (!deviceInDb.IsOperational)
+                                {
+                                    if (deviceInDb.Status != "閒置")
+                                    {
+                                        _logger.LogInformation("Modbus 讀取回應：設備 '{DeviceName}' (ESP32 {Esp32Id}, Slave {SlaveId}) 未啟用，將資料庫狀態由 '{OldStatus}' 同步為 '閒置' 並忽略本次回應。",
+                                                               deviceInDb.Name, responseData.DeviceId, responseData.SlaveId, deviceInDb.Status);
+                                        deviceInDb.Status = "閒置";
+                                        deviceInDb.Timestamp = DateTime.UtcNow;
+                                        await dbContext.SaveChangesAsync();
+                                    }
+
+                                    var inactiveHomeViewModel = _serviceProvider.GetService<HomeViewModel>();
+                                    inactiveHomeViewModel?.UpdateDeviceStatusFromMqtt(
+                                        responseData.DeviceId,
+                                        responseData.SlaveId,
+                                        deviceInDb.Status,
+                                        deviceInDb.RunCount,
+                                        "設備未啟用，已維持閒置",
+                                        responseData.Address);
+                                    return;
+                                }
+
                                 if (responseData.Status?.ToLower() == "success" && responseData.Data != null)
                                 {
                                     var addressMap = ModbusAddressMapping.GetMap(deviceInDb.Area, deviceInDb.ModbusDeviceIndex);
