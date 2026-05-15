@@ -100,6 +100,9 @@ namespace SANJET.Core.Services
 
                         var devicesToPoll = await dbContext.Devices
                             .Where(d => !string.IsNullOrEmpty(d.ControllingEsp32MqttId) && d.IsOperational)
+                            .OrderBy(d => d.SlaveId)
+                            .ThenBy(d => d.ModbusDeviceIndex)
+                            .ThenBy(d => d.Id)
                             .ToListAsync(stoppingToken);
 
                         if (!devicesToPoll.Any())
