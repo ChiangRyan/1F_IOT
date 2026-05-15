@@ -80,7 +80,11 @@ namespace SANJET.Core.ViewModels
                 _logger.LogWarning("HomeViewModel.LoadDevicesAsync: _dbContext.Devices is null.");
                 return;
             }
-            var devicesFromDb = await _dbContext.Devices.ToListAsync();
+            var devicesFromDb = await _dbContext.Devices
+                .OrderBy(d => d.SlaveId)
+                .ThenBy(d => d.ModbusDeviceIndex)
+                .ThenBy(d => d.Id)
+                .ToListAsync();
             foreach (var deviceEntity in devicesFromDb)
             {
                 var deviceVm = new DeviceViewModel(this, _mainViewModel, _logger, _audioService)
@@ -89,7 +93,7 @@ namespace SANJET.Core.ViewModels
                     Name = deviceEntity.Name,
                     OriginalName = deviceEntity.Name,
                     SlaveId = deviceEntity.SlaveId,
-                    Status = deviceEntity.Status,
+                    Status = deviceEntity.IsOperational ? deviceEntity.Status : "閒置",
                     IsOperational = deviceEntity.IsOperational,
                     RunCount = deviceEntity.RunCount,
                     IsEditingName = false,
@@ -253,6 +257,7 @@ namespace SANJET.Core.ViewModels
             {
                 deviceInDb.Name = deviceVm.Name;
                 deviceInDb.IsOperational = deviceVm.IsOperational;
+                deviceInDb.Status = deviceVm.Status;
                 _dbContext.Devices.Update(deviceInDb);
                 await _dbContext.SaveChangesAsync();
 
@@ -475,6 +480,18 @@ namespace SANJET.Core.ViewModels
         {
             var deviceToUpdate = FindDeviceByModbusResponse(esp32MqttIdFromResponse, slaveIdFromResponse, responseAddress);
 
+            if (deviceToUpdate != null && !deviceToUpdate.IsOperational)
+            {
+                if (deviceToUpdate.Status != "閒置")
+                {
+                    deviceToUpdate.Status = "閒置";
+                }
+
+                _logger.LogInformation("UI Update (Polling): Device '{DeviceName}' 未啟用，忽略輪詢回應並維持閒置狀態。ESP32: {Esp32Id}, Slave: {SlaveId}",
+                                       deviceToUpdate.Name, esp32MqttIdFromResponse, slaveIdFromResponse);
+                return;
+            }
+
             if (deviceToUpdate != null)
             {
                 string oldStatus = deviceToUpdate.Status;
@@ -663,6 +680,11 @@ namespace SANJET.Core.ViewModels
 
         partial void OnIsOperationalChanged(bool value)
         {
+            if (!value && Status != "閒置")
+            {
+                Status = "閒置";
+            }
+
             if (_homeViewModel != null)
             {
                 _ = _homeViewModel.SaveChangesToDeviceAsync(this);
