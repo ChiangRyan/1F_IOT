@@ -129,7 +129,9 @@ namespace SANJET.Core.Services
                                     addressMap.StatusAddress,
                                     1, addressMap.FunctionCode
                                 );
-                                await Task.Delay(TimeSpan.FromMilliseconds(500), stoppingToken);
+
+                                //單筆輪尋間隔時間
+                                await Task.Delay(TimeSpan.FromMilliseconds(1500), stoppingToken);
 
                                 if (stoppingToken.IsCancellationRequested) break;
 

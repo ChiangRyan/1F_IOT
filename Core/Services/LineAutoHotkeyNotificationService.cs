@@ -304,7 +304,7 @@ namespace SANJET.Core.Services
                 ; RyanPC：138,101
                 ; 機聯網PC聊天 : 110,80
                 ; 機聯網PC好友 : 110,50
-                Click 138,101
+                Click 110,50
                 Sleep delay
 
                 Send "^a"
@@ -328,7 +328,7 @@ namespace SANJET.Core.Services
                 ; RyanPC：250,210
                 ; 機聯網PC聊天 : 180,160
                 ; 機聯網PC好友 : 200,135
-                Click 250,210
+                Click 200,135
                 Sleep delay * 2
             }
 
@@ -339,7 +339,7 @@ namespace SANJET.Core.Services
                 ; LINE 輸入框座標：
                 ; RyanPC：495,675
                 ; 機聯網PC : 385,700
-                Click 495,675
+                Click 385,700
                 Sleep delay
             }
             """;                                
