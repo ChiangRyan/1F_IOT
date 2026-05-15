@@ -94,6 +94,7 @@ namespace SANJET.Core.Services
 
                 await EnsureLineWindowPinnedAsync(cancellationToken);
                 await RunAutoHotkeyScriptAsync(scriptFilePath, chatName, cancellationToken);
+                TryMinimizeLineWindowAfterSend();
                 if (string.IsNullOrWhiteSpace(chatName))
                 {
                     _logger.LogInformation("LINE AutoHotkey 故障通知已送出。以目前 LINE 視窗直接貼上並送出。");
@@ -289,8 +290,11 @@ namespace SANJET.Core.Services
 
             Sleep delay * 2
 
-            if (minimizeAfterSend)
+            if (minimizeAfterSend) {
+                WinSetAlwaysOnTop 0, "ahk_id " lineWindow
+                Sleep delay
                 WinMinimize "ahk_id " lineWindow
+            }
 
             ExitApp 0
 
@@ -409,8 +413,11 @@ namespace SANJET.Core.Services
                 Send, {Enter}
                 sleepAfterSend := delay * 2
                 Sleep, %sleepAfterSend%
-                if (minimizeAfterSend)
+                if (minimizeAfterSend) {
+                    WinSet, AlwaysOnTop, Off, ahk_id %lineWindow%
+                    Sleep, %delay%
                     WinMinimize, ahk_id %lineWindow%
+                }
                 ExitApp, 0
 
                 IsTargetChatActive:
@@ -483,6 +490,35 @@ namespace SANJET.Core.Services
                 _options.LineWindowTop,
                 width,
                 height);
+        }
+
+        private void TryMinimizeLineWindowAfterSend()
+        {
+            if (!_options.MinimizeLineWindowAfterSend)
+            {
+                return;
+            }
+
+            var windowHandle = FindLineMainWindow(GetLineProcessNameWithoutExtension());
+            if (windowHandle == IntPtr.Zero)
+            {
+                _logger.LogWarning("MinimizeLineWindowAfterSend 已啟用，但找不到 LINE 視窗可最小化。ProcessName: {ProcessName}", GetLineProcessExecutableName());
+                return;
+            }
+
+            if (_options.KeepLineWindowTopMost)
+            {
+                SetWindowPos(windowHandle, HwndNoTopMost, 0, 0, 0, 0, SetWindowPosFlags.NoMove | SetWindowPosFlags.NoSize | SetWindowPosFlags.NoActivate);
+            }
+
+            if (ShowWindow(windowHandle, ShowWindowCommand.Minimize))
+            {
+                _logger.LogDebug("LINE 視窗已在發送後透過 Win32 API 最小化。Handle: {WindowHandle}", windowHandle);
+            }
+            else
+            {
+                _logger.LogWarning("MinimizeLineWindowAfterSend 已啟用，但 Win32 API 最小化 LINE 視窗失敗。Handle: {WindowHandle}", windowHandle);
+            }
         }
 
         private async Task<IntPtr> WaitForLineWindowAsync(CancellationToken cancellationToken)
@@ -693,11 +729,15 @@ namespace SANJET.Core.Services
         [Flags]
         private enum SetWindowPosFlags : uint
         {
+            NoSize = 0x0001,
+            NoMove = 0x0002,
+            NoActivate = 0x0010,
             ShowWindow = 0x0040
         }
 
         private enum ShowWindowCommand
         {
+            Minimize = 6,
             Restore = 9
         }
 
