@@ -300,8 +300,11 @@ namespace SANJET.Core.Services
                 Sleep delay
 
                 ; LINE 已固定在 0,0,1000,800
-                ; 搜尋框座標：Window 138,101
-                Click 138, 101
+                ; 搜尋框座標
+                ; RyanPC：138,101
+                ; 機聯網PC聊天 : 110,80
+                ; 機聯網PC好友 : 110,50
+                Click 138,101
                 Sleep delay
 
                 Send "^a"
@@ -321,8 +324,11 @@ namespace SANJET.Core.Services
                 Send "^v"
                 Sleep delay * 2
 
-                ; 搜尋結果第一筆座標：Window 250,210
-                Click 250, 210
+                ; 搜尋結果第一筆座標
+                ; RyanPC：250,210
+                ; 機聯網PC聊天 : 180,160
+                ; 機聯網PC好友 : 200,135
+                Click 250,210
                 Sleep delay * 2
             }
 
@@ -330,8 +336,10 @@ namespace SANJET.Core.Services
                 WinActivate "ahk_id " lineWindow
                 Sleep delay
 
-                ; LINE 輸入框座標：Window 495,675
-                Click 495, 675
+                ; LINE 輸入框座標：
+                ; RyanPC：495,675
+                ; 機聯網PC : 385,700
+                Click 495,675
                 Sleep delay
             }
             """;                                
