@@ -98,6 +98,22 @@ namespace SANJET.Core.Services
                         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                         var mainViewModel = scope.ServiceProvider.GetRequiredService<MainViewModel>();
 
+                        var inactiveDevicesWithStaleStatus = await dbContext.Devices
+                            .Where(d => !d.IsOperational && d.Status != "閒置")
+                            .ToListAsync(stoppingToken);
+
+                        if (inactiveDevicesWithStaleStatus.Any())
+                        {
+                            foreach (var inactiveDevice in inactiveDevicesWithStaleStatus)
+                            {
+                                inactiveDevice.Status = "閒置";
+                                inactiveDevice.Timestamp = DateTime.UtcNow;
+                            }
+
+                            await dbContext.SaveChangesAsync(stoppingToken);
+                            _logger.LogInformation("Modbus輪詢服務：已將 {Count} 個未啟用設備的資料庫狀態同步為閒置。", inactiveDevicesWithStaleStatus.Count);
+                        }
+
                         var devicesToPoll = await dbContext.Devices
                             .Where(d => !string.IsNullOrEmpty(d.ControllingEsp32MqttId) && d.IsOperational)
                             .OrderBy(d => d.SlaveId)

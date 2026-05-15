@@ -22,6 +22,7 @@ namespace SANJET.Core.ViewModels
     {
         private const string DisplayAreaName = "展機區";
         private const string TestAreaName = "測試區";
+        private const string IdleStatus = "閒置";
 
         private readonly AppDbContext _dbContext;
         private readonly ILogger<HomeViewModel> _logger;
@@ -80,6 +81,22 @@ namespace SANJET.Core.ViewModels
                 _logger.LogWarning("HomeViewModel.LoadDevicesAsync: _dbContext.Devices is null.");
                 return;
             }
+            var inactiveDevicesWithStaleStatus = await _dbContext.Devices
+                .Where(d => !d.IsOperational && d.Status != IdleStatus)
+                .ToListAsync();
+
+            if (inactiveDevicesWithStaleStatus.Any())
+            {
+                foreach (var inactiveDevice in inactiveDevicesWithStaleStatus)
+                {
+                    inactiveDevice.Status = IdleStatus;
+                    inactiveDevice.Timestamp = DateTime.UtcNow;
+                }
+
+                await _dbContext.SaveChangesAsync();
+                _logger.LogInformation("已將 {Count} 個未啟用設備的資料庫狀態同步為閒置。", inactiveDevicesWithStaleStatus.Count);
+            }
+
             var devicesFromDb = await _dbContext.Devices
                 .OrderBy(d => d.SlaveId)
                 .ThenBy(d => d.ModbusDeviceIndex)
@@ -93,7 +110,7 @@ namespace SANJET.Core.ViewModels
                     Name = deviceEntity.Name,
                     OriginalName = deviceEntity.Name,
                     SlaveId = deviceEntity.SlaveId,
-                    Status = deviceEntity.IsOperational ? deviceEntity.Status : "閒置",
+                    Status = deviceEntity.IsOperational ? deviceEntity.Status : IdleStatus,
                     IsOperational = deviceEntity.IsOperational,
                     RunCount = deviceEntity.RunCount,
                     IsEditingName = false,
@@ -257,7 +274,14 @@ namespace SANJET.Core.ViewModels
             {
                 deviceInDb.Name = deviceVm.Name;
                 deviceInDb.IsOperational = deviceVm.IsOperational;
-                deviceInDb.Status = deviceVm.Status;
+                deviceInDb.Status = deviceVm.IsOperational ? deviceVm.Status : IdleStatus;
+                deviceInDb.Timestamp = DateTime.UtcNow;
+
+                if (!deviceVm.IsOperational && deviceVm.Status != IdleStatus)
+                {
+                    deviceVm.Status = IdleStatus;
+                }
+
                 _dbContext.Devices.Update(deviceInDb);
                 await _dbContext.SaveChangesAsync();
 
@@ -482,9 +506,9 @@ namespace SANJET.Core.ViewModels
 
             if (deviceToUpdate != null && !deviceToUpdate.IsOperational)
             {
-                if (deviceToUpdate.Status != "閒置")
+                if (deviceToUpdate.Status != IdleStatus)
                 {
-                    deviceToUpdate.Status = "閒置";
+                    deviceToUpdate.Status = IdleStatus;
                 }
 
                 _logger.LogInformation("UI Update (Polling): Device '{DeviceName}' 未啟用，忽略輪詢回應並維持閒置狀態。ESP32: {Esp32Id}, Slave: {SlaveId}",
@@ -611,6 +635,8 @@ namespace SANJET.Core.ViewModels
     // DeviceViewModel 類別保持不變 (如先前提供)
     public partial class DeviceViewModel : ObservableObject
     {
+        private const string IdleStatus = "閒置";
+
         private readonly HomeViewModel? _homeViewModel;
         private readonly MainViewModel? _mainViewModel;
         private readonly ILogger? _logger;
@@ -680,9 +706,9 @@ namespace SANJET.Core.ViewModels
 
         partial void OnIsOperationalChanged(bool value)
         {
-            if (!value && Status != "閒置")
+            if (!value && Status != IdleStatus)
             {
-                Status = "閒置";
+                Status = IdleStatus;
             }
 
             if (_homeViewModel != null)
